@@ -10,4 +10,4 @@ Use LLM model:
 Use python Model
 1. Ollama : Ollama client
 2. transformers : (Download & Run Breeze-ASR-25 model)
-3. pyaudio :Play response voic
+3. pyaudio & simpleaudio :Play response voic
