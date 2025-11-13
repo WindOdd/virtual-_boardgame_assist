@@ -1,13 +1,26 @@
 # virtual-_boardgame_assist
-Use LLM create a board game assist
-Use LLM model:
-
-1. Breeze-ASR-25 (Form MediaTek-Research. It's sub-version of Wshiper)
-2. Use Ollama setup loacl LLM serve
-3. Use EdgeTTS (text-to-speech) (temporary)
-
-=====================================================
-Use python Model
-1. Ollama : Ollama client
-2. transformers : (Download & Run Breeze-ASR-25 model)
-3. pyaudio & simpleaudio :Play response voic
+流程：
+📍 待機模式 
+    ↓ 
+👂 喚醒檢測（按鈕 OR 關鍵詞「小助理」） 
+    ↓
+ 🎤 開始錄音 + VAD 實時監測 
+    ↓ 
+⏹️ 檢測到靜音超過 1.5 秒 → 停止錄音（動態停止） 
+    ↓
+ 🧹 降噪 + VAD 驗證（確認有有效人聲） 
+    ↓
+若無人聲 
+    └─→ 播放「抱歉，我沒聽清楚」→ 返回待機 
+    ↓
+ 若有人聲 🗣️ STT（faster-whisper） 
+    ↓ 
+ 🔍 RAG 檢索（向量搜索相關規則） 
+    ↓ 
+🤖 LLM 生成回答（基於檢索到的規則） 
+    ↓
+🔊 TTS 合成語音 
+    ↓ 
+📢 播放回答 
+    ↓ 
+⏱️ 播放結束後 2 秒 → 返回待機模式
