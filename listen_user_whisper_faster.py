@@ -1,21 +1,22 @@
 """
-桌遊語音助理 - STT 核心系統 (faster-whisper 版本)
-功能：音訊輸入 → VAD → STT (完全記憶體處理)
+桌遊語音助理 - 完整 VAD 系統（整合版）
 
-優勢：
-- 更快的轉錄速度（2-3倍）
-- 無 Windows 檔案鎖定問題
-- 直接處理 numpy array
-- 標準化的返回格式
+控制方式：
+1. Enter 開始錄音
+2. Enter 停止錄音 或 40 秒自動停止
+
+處理流程：
+- Callback: RNNoise 降噪 → WebRTC VAD → 保存語音段
+- 處理: 降噪語音段 → 後置驗證 → Whisper 轉錄
 """
 
 import sounddevice as sd
 import numpy as np
 import time
+import threading
 from datetime import datetime
 from collections import deque
 from pathlib import Path
-import threading
 
 # 檢查依賴
 try:
@@ -25,283 +26,334 @@ except ImportError:
     exit(1)
 
 try:
-    import torch
+    import webrtcvad
 except ImportError:
-    print("❌ 請安裝: pip install torch")
+    print("❌ 請安裝: pip install webrtcvad")
     exit(1)
 
 try:
     from scipy.io import wavfile
+    from scipy import signal
 except ImportError:
     print("❌ 請安裝: pip install scipy")
     exit(1)
+
+# RNNoise（可選）
+try:
+    from pyrnnoise import RNNoise
+    RNNOISE_AVAILABLE = True
+except ImportError:
+    RNNOISE_AVAILABLE = False
+    print("⚠️  RNNoise 未安裝（可選），降噪功能不可用")
 
 
 # ==================== 配置類 ====================
 class Config:
     """系統配置"""
     # 音訊參數
-    SAMPLE_RATE = 16000          # 採樣率 (Hz)
-    CHANNELS = 1                 # 單聲道
-    DTYPE = 'int16'              # 數據類型
+    SAMPLE_RATE = 16000
+    CHANNELS = 1
+    DTYPE = 'int16'
+    FRAME_DURATION_MS = 20
     
     # 錄音控制
-    MAX_RECORDING_DURATION = 30  # 最大錄音時長（秒）
-    SILENCE_DURATION = 1.5       # 靜音判定時長（秒）
-    SILENCE_THRESHOLD = 50       # 靜音能量閾值
+    MAX_RECORDING_DURATION = 40  # 最大 40 秒
     
-    # VAD 參數
-    VAD_THRESHOLD = 0.5          # Silero VAD 閾值 (0-1)
-    MIN_SPEECH_DURATION = 0.5    # 最短有效語音時長（秒）
-    MIN_SPEECH_ENERGY = 100      # 最小語音能量（備用方案）
+    # 降噪
+    ENABLE_RNNOISE = True
+    RNNOISE_IN_CALLBACK = True
     
-    # Whisper 設定
-    WHISPER_MODEL = "base"       # 模型大小: tiny, base, small, medium, large
-    WHISPER_DEVICE = "cpu"       # 設備: cpu, cuda
-    WHISPER_COMPUTE_TYPE = "int8" # 計算類型: int8, float16, float32
-    WHISPER_LANGUAGE = "zh"      # 語言
+    # VAD
+    VAD_STRATEGY = "webrtc_only"
+    WEBRTC_AGGRESSIVENESS = 1
     
-    # 系統設定
-    DEBUG_MODE = True            # 除錯模式（會保存音訊檔案）
-    LOG_DIR = Path("logs")       # 日誌目錄
+    # 狀態機
+    SPEECH_START_FRAMES = 3
+    SPEECH_END_FRAMES = 15
+    PRE_SPEECH_FRAMES = 5
+    POST_SPEECH_FRAMES = 5
+    
+    # 後置驗證
+    MIN_SPEECH_DURATION = 0.5
+    MAX_SPEECH_DURATION = 60
+    MIN_ENERGY_THRESHOLD = 50
+    
+    # Whisper
+    WHISPER_MODEL = "medium" \
+    ""
+    WHISPER_DEVICE = "cpu"
+    WHISPER_COMPUTE_TYPE = "int8"
+    WHISPER_LANGUAGE = "zh"
+    
+    # 系統
+    DEBUG_MODE = True
+    LOG_DIR = Path("logs")
     
     @classmethod
     def print_config(cls):
-        """列印當前配置"""
+        """列印配置"""
         print("\n" + "="*60)
         print("系統配置")
         print("="*60)
-        print(f"採樣率: {cls.SAMPLE_RATE} Hz")
+        print(f"最大錄音時長: {cls.MAX_RECORDING_DURATION} 秒")
+        print(f"RNNoise 降噪: {'開啟（實時）' if cls.ENABLE_RNNOISE and RNNOISE_AVAILABLE else '關閉'}")
+        print(f"VAD 策略: WebRTC (激進度={cls.WEBRTC_AGGRESSIVENESS})")
         print(f"Whisper 模型: {cls.WHISPER_MODEL}")
-        print(f"計算類型: {cls.WHISPER_COMPUTE_TYPE}")
-        print(f"設備: {cls.WHISPER_DEVICE}")
-        print(f"語言: {cls.WHISPER_LANGUAGE}")
         print(f"除錯模式: {'開啟' if cls.DEBUG_MODE else '關閉'}")
         print("="*60 + "\n")
 
 
+# ==================== RNNoise 降噪 ====================
+class RNNoiseProcessor:
+    """RNNoise 降噪處理器"""
+    
+    def __init__(self, sample_rate=16000):
+        self.sample_rate = sample_rate
+        self.denoiser = None
+        self.available = RNNOISE_AVAILABLE
+        
+        if not self.available:
+            return
+        
+        try:
+            self.denoiser = RNNoise(sample_rate=sample_rate)
+            print("✅ RNNoise 已初始化")
+        except Exception as e:
+            print(f"⚠️  RNNoise 初始化失敗: {e}")
+            self.available = False
+    
+    def process_frame(self, audio_int16):
+        """處理音訊幀"""
+        if not self.available or self.denoiser is None:
+            return audio_int16
+        
+        try:
+            # 重採樣到 48kHz
+            audio_48k = self._resample_to_48k(audio_int16)
+            
+            # 轉 float32
+            audio_float = audio_48k.astype(np.float32) / 32768.0
+            
+            # 降噪
+            denoised_float = self.denoiser.denoise_frame(audio_float)
+            
+            # 轉回 int16
+            audio_denoised_48k = (denoised_float * 32768.0).astype(np.int16)
+            
+            # 重採樣回 16kHz
+            audio_denoised_16k = self._resample_to_16k(audio_denoised_48k)
+            
+            return audio_denoised_16k
+            
+        except Exception as e:
+            return audio_int16
+    
+    def _resample_to_48k(self, audio_16k):
+        """16kHz → 48kHz"""
+        num_samples = int(len(audio_16k) * 48000 / 16000)
+        return signal.resample(audio_16k, num_samples).astype(np.int16)
+    
+    def _resample_to_16k(self, audio_48k):
+        """48kHz → 16kHz"""
+        num_samples = int(len(audio_48k) * 16000 / 48000)
+        return signal.resample(audio_48k, num_samples).astype(np.int16)
+    
+    def reset(self):
+        """重置狀態"""
+        if self.available and self.denoiser is not None:
+            try:
+                self.denoiser = RNNoise(sample_rate=self.sample_rate)
+            except:
+                pass
+
+
+# ==================== WebRTC VAD ====================
+class WebRTCVAD:
+    """WebRTC VAD 處理器"""
+    
+    def __init__(self, sample_rate=16000, aggressiveness=1):
+        self.sample_rate = sample_rate
+        self.vad = webrtcvad.Vad()
+        self.vad.set_mode(aggressiveness)
+        print(f"✅ WebRTC VAD 已初始化（激進度: {aggressiveness}）")
+    
+    def is_speech(self, audio_int16):
+        """判斷是否為語音"""
+        try:
+            frame_length = int(self.sample_rate * Config.FRAME_DURATION_MS / 1000)
+            
+            if len(audio_int16) != frame_length:
+                audio_int16 = self._adjust_frame_size(audio_int16, frame_length)
+            
+            is_speech = self.vad.is_speech(
+                audio_int16.tobytes(),
+                sample_rate=self.sample_rate
+            )
+            
+            return is_speech
+            
+        except Exception as e:
+            # 降級到能量檢測
+            energy = np.mean(np.abs(audio_int16))
+            return energy > Config.MIN_ENERGY_THRESHOLD
+    
+    def _adjust_frame_size(self, audio, target_length):
+        """調整幀大小"""
+        if len(audio) < target_length:
+            return np.pad(audio, (0, target_length - len(audio)), mode='constant')
+        else:
+            return audio[:target_length]
+
+
 # ==================== 音訊緩衝區 ====================
 class AudioBuffer:
-    """循環音訊緩衝區（記憶體管理）"""
+    """音訊緩衝區"""
     
-    def __init__(self, max_duration, sample_rate):
-        self.max_samples = int(max_duration * sample_rate)
-        self.buffer = deque(maxlen=self.max_samples)
-        self.sample_rate = sample_rate
+    def __init__(self):
+        self.buffer = []
         self.lock = threading.Lock()
     
     def add(self, data):
-        """添加音訊數據（線程安全）"""
+        """添加數據"""
         with self.lock:
-            self.buffer.extend(data.flatten())
+            self.buffer.append(data)
+    
+    def get_array(self):
+        """獲取完整音訊"""
+        with self.lock:
+            if not self.buffer:
+                return np.array([], dtype='int16')
+            return np.concatenate(self.buffer)
     
     def clear(self):
-        """清空緩衝區"""
+        """清空"""
         with self.lock:
             self.buffer.clear()
     
-    def get_array(self):
-        """獲取完整音訊數據（float32 格式）"""
-        with self.lock:
-            # faster-whisper 需要 float32 [-1, 1]
-            audio_int16 = np.array(list(self.buffer), dtype='int16')
-            audio_float32 = audio_int16.astype(np.float32) / 32768.0
-            return audio_float32
-    
     def get_duration(self):
-        """獲取當前緩衝時長"""
-        with self.lock:
-            return len(self.buffer) / self.sample_rate
+        """獲取時長"""
+        audio = self.get_array()
+        return len(audio) / Config.SAMPLE_RATE
 
 
-# ==================== VAD 處理器 ====================
-class VADProcessor:
-    """語音活動檢測器"""
+# ==================== 智能錄音器 ====================
+class SmartAudioRecorder:
+    """智能錄音器（RNNoise + WebRTC VAD + Enter控制 + 超時）"""
     
-    def __init__(self, sample_rate=16000, threshold=0.5):
-        self.sample_rate = sample_rate
-        self.threshold = threshold
-        self.model = None
-        self.utils = None
-        self._load_model()
-    
-    def _load_model(self):
-        """載入 Silero VAD 模型"""
-        try:
-            print("⏳ 載入 Silero VAD 模型...")
-            self.model, self.utils = torch.hub.load(
-                repo_or_dir='snakers4/silero-vad',
-                model='silero_vad',
-                force_reload=False,
-                onnx=False,
-                verbose=False
-            )
-            self.model.eval()
-            print("✅ Silero VAD 已載入")
-        except Exception as e:
-            print(f"⚠️  Silero VAD 載入失敗: {e}")
-            print("   將使用簡單能量檢測作為備用方案")
-            self.model = None
-    
-    def has_speech(self, audio_float32):
-        """
-        檢測音訊中是否包含語音
+    def __init__(self):
+        """初始化"""
+        # 降噪器
+        if Config.ENABLE_RNNOISE and Config.RNNOISE_IN_CALLBACK:
+            self.denoiser = RNNoiseProcessor(Config.SAMPLE_RATE)
+        else:
+            self.denoiser = None
         
-        Args:
-            audio_float32: numpy array (float32, [-1, 1])
-        """
-        if self.model is None:
-            return self._energy_based_vad(audio_float32)
-        
-        try:
-            return self._silero_vad(audio_float32)
-        except Exception as e:
-            print(f"⚠️  VAD 檢測錯誤: {e}，使用備用方案")
-            return self._energy_based_vad(audio_float32)
-    
-    def _silero_vad(self, audio_float32):
-        """使用 Silero VAD 檢測"""
-        audio_tensor = torch.from_numpy(audio_float32)
-        
-        get_speech_timestamps = self.utils[0]
-        speech_timestamps = get_speech_timestamps(
-            audio_tensor,
-            self.model,
-            sampling_rate=self.sample_rate,
-            threshold=self.threshold,
-            min_speech_duration_ms=int(Config.MIN_SPEECH_DURATION * 1000),
-            return_seconds=False
+        # VAD
+        self.vad = WebRTCVAD(
+            Config.SAMPLE_RATE,
+            Config.WEBRTC_AGGRESSIVENESS
         )
         
-        if not speech_timestamps:
-            return False
+        # 緩衝區
+        self.speech_buffer = AudioBuffer()
+        self.pre_buffer = deque(maxlen=Config.PRE_SPEECH_FRAMES)
         
-        total_speech_samples = sum(
-            ts['end'] - ts['start'] 
-            for ts in speech_timestamps
-        )
-        total_speech_duration = total_speech_samples / self.sample_rate
-        
-        return total_speech_duration >= Config.MIN_SPEECH_DURATION
-    
-    def _energy_based_vad(self, audio_float32):
-        """簡單能量檢測（備用方案）"""
-        energy = np.mean(np.abs(audio_float32))
-        # float32 的能量閾值需要調整
-        return energy > (Config.MIN_SPEECH_ENERGY / 32768.0)
-
-
-# ==================== faster-whisper STT ====================
-class FasterWhisperSTT:
-    """faster-whisper 語音轉文字（完全記憶體處理）"""
-    
-    def __init__(self, model_size="base", device="cpu", compute_type="int8", language="zh"):
-        """
-        初始化 faster-whisper
-        
-        Args:
-            model_size: 模型大小 (tiny, base, small, medium, large)
-            device: 運行設備 (cpu, cuda)
-            compute_type: 計算類型 (int8, float16, float32)
-            language: 語言代碼
-        """
-        self.language = language
-        self.model = None
-        self._load_model(model_size, device, compute_type)
-    
-    def _load_model(self, model_size, device, compute_type):
-        """載入 faster-whisper 模型"""
-        try:
-            print(f"⏳ 載入 faster-whisper 模型: {model_size}")
-            print(f"   設備: {device}, 計算類型: {compute_type}")
-            
-            self.model = WhisperModel(
-                model_size,
-                device=device,
-                compute_type=compute_type
-            )
-            
-            print("✅ faster-whisper 已載入")
-            
-        except Exception as e:
-            print(f"❌ faster-whisper 載入失敗: {e}")
-            import traceback
-            traceback.print_exc()
-            self.model = None
-    
-    def transcribe(self, audio_float32):
-        """
-        轉錄音訊（完全記憶體處理）
-        
-        Args:
-            audio_float32: numpy array (float32, [-1, 1])
-            
-        Returns:
-            str: 轉錄文字
-        """
-        if self.model is None:
-            print("❌ faster-whisper 模型未載入")
-            return ""
-        
-        try:
-            start_time = time.time()
-            
-            # faster-whisper 可以直接接受 numpy array！
-            segments, info = self.model.transcribe(
-                audio_float32,
-                language=self.language,
-                beam_size=5,
-                vad_filter=False,  # 我們已經用 Silero VAD 了
-                without_timestamps=True  # 不需要時間戳，更快
-            )
-            
-            # 組合所有 segment 的文字
-            text = "".join([segment.text for segment in segments]).strip()
-            
-            elapsed = time.time() - start_time
-            
-            # 顯示辨識資訊
-            print(f"⏱️  轉錄耗時: {elapsed:.2f} 秒")
-            print(f"📊 檢測語言: {info.language} (置信度: {info.language_probability:.2%})")
-            
-            return text
-            
-        except Exception as e:
-            print(f"❌ 轉錄錯誤: {e}")
-            import traceback
-            traceback.print_exc()
-            return ""
-
-
-# ==================== 錄音管理器 ====================
-class AudioRecorder:
-    """音訊錄音管理器"""
-    
-    def __init__(self, buffer):
-        self.buffer = buffer
-        self.stream = None
+        # 狀態
         self.is_recording = False
-        self.silence_start = None
+        self.is_speaking = False
+        self.consecutive_speech = 0
+        self.consecutive_silence = 0
+        self.stream = None
+        self.start_time = None
+        
+        # ✅ 超時控制
+        self.stop_event = threading.Event()
+        self.monitor_thread = None
+        
+        # 統計
+        self.total_frames = 0
+        self.speech_frames = 0
     
     def _callback(self, indata, frames, time_info, status):
-        """音訊輸入回調函數"""
+        """音訊回調"""
         if status:
-            print(f"⚠️  音訊狀態: {status}")
+            print(f"⚠️  {status}")
         
-        if self.is_recording:
-            self.buffer.add(indata)
+        if not self.is_recording:
+            return
+        
+        self.total_frames += 1
+        
+        # 轉 int16
+        audio_frame = indata.flatten().astype('int16')
+        
+        # 降噪
+        if self.denoiser:
+            audio_frame = self.denoiser.process_frame(audio_frame)
+        
+        # VAD 判斷
+        is_speech = self.vad.is_speech(audio_frame)
+        
+        # 狀態機
+        self._handle_speech_state(audio_frame, is_speech)
+    
+    def _handle_speech_state(self, audio_frame, is_speech):
+        """狀態機處理"""
+        
+        if is_speech:
+            self.consecutive_speech += 1
+            self.consecutive_silence = 0
+            self.speech_frames += 1
             
-            # 檢測靜音
-            energy = np.mean(np.abs(indata))
+            # 語音開始
+            if not self.is_speaking:
+                if self.consecutive_speech >= Config.SPEECH_START_FRAMES:
+                    self.is_speaking = True
+                    print(f"🗣️  語音開始（幀 {self.total_frames}）")
+                    
+                    # 加入前導緩衝
+                    for pre_frame in self.pre_buffer:
+                        self.speech_buffer.add(pre_frame)
+                    
+                    self.pre_buffer.clear()
             
-            if energy < Config.SILENCE_THRESHOLD:
-                if self.silence_start is None:
-                    self.silence_start = time.time()
-                elif time.time() - self.silence_start > Config.SILENCE_DURATION:
-                    print("🔇 檢測到持續靜音")
+            # 保存語音
+            self.speech_buffer.add(audio_frame)
+            self.pre_buffer.append(audio_frame)
+        
+        else:  # 非語音
+            self.consecutive_silence += 1
+            self.consecutive_speech = 0
+            
+            # 語音可能結束
+            if self.is_speaking:
+                # 保存後導
+                if self.consecutive_silence <= Config.POST_SPEECH_FRAMES:
+                    self.speech_buffer.add(audio_frame)
+                
+                # 確認結束
+                elif self.consecutive_silence >= Config.SPEECH_END_FRAMES:
+                    self.is_speaking = False
+                    duration = self.speech_buffer.get_duration()
+                    print(f"🔇 語音結束（時長: {duration:.2f}s）")
+                    
+                    # ✅ 語音結束後自動停止
                     self.stop()
+            
             else:
-                self.silence_start = None
+                # 維護前導緩衝
+                self.pre_buffer.append(audio_frame)
+    
+    def _monitor_timeout(self):
+        """監控超時（獨立線程）"""
+        # ✅ 等待停止事件或超時
+        timeout_reached = not self.stop_event.wait(
+            timeout=Config.MAX_RECORDING_DURATION
+        )
+        
+        if timeout_reached and self.is_recording:
+            print(f"\n⏱️  達到 {Config.MAX_RECORDING_DURATION} 秒，自動停止")
+            self.stop()
     
     def start(self):
         """開始錄音"""
@@ -309,19 +361,43 @@ class AudioRecorder:
             print("⚠️  已在錄音中")
             return
         
-        print("🎤 開始錄音...")
-        self.is_recording = True
-        self.buffer.clear()
-        self.silence_start = None
+        print(f"🎤 開始錄音（最長 {Config.MAX_RECORDING_DURATION} 秒）")
         
+        # 重置狀態
+        self.is_recording = True
+        self.is_speaking = False
+        self.consecutive_speech = 0
+        self.consecutive_silence = 0
+        self.total_frames = 0
+        self.speech_frames = 0
+        self.start_time = time.time()
+        self.stop_event.clear()
+        
+        # 清空緩衝
+        self.speech_buffer.clear()
+        self.pre_buffer.clear()
+        
+        # 重置降噪器
+        if self.denoiser:
+            self.denoiser.reset()
+        
+        # 開啟音訊流
         try:
+            frame_length = int(Config.SAMPLE_RATE * Config.FRAME_DURATION_MS / 1000)
+            
             self.stream = sd.InputStream(
                 callback=self._callback,
                 channels=Config.CHANNELS,
                 samplerate=Config.SAMPLE_RATE,
-                dtype=Config.DTYPE
+                dtype=Config.DTYPE,
+                blocksize=frame_length
             )
             self.stream.start()
+            
+            # ✅ 啟動監控線程
+            self.monitor_thread = threading.Thread(target=self._monitor_timeout)
+            self.monitor_thread.daemon = True
+            self.monitor_thread.start()
             
         except Exception as e:
             print(f"❌ 錄音啟動失敗: {e}")
@@ -333,43 +409,108 @@ class AudioRecorder:
             return
         
         self.is_recording = False
+        self.stop_event.set()  # ✅ 觸發停止事件
         
+        # 停止音訊流
         if self.stream:
             self.stream.stop()
             self.stream.close()
             self.stream = None
         
-        duration = self.buffer.get_duration()
-        print(f"⏹️  錄音停止（時長: {duration:.2f} 秒）")
+        # 等待監控線程
+        if self.monitor_thread and self.monitor_thread.is_alive():
+            self.monitor_thread.join(timeout=1)
+        
+        duration = time.time() - self.start_time
+        speech_duration = self.speech_buffer.get_duration()
+        
+        print(f"⏹️  錄音停止")
+        print(f"   總時長: {duration:.1f}s")
+        print(f"   語音段: {speech_duration:.1f}s")
+        if self.total_frames > 0:
+            print(f"   語音幀率: {self.speech_frames/self.total_frames*100:.1f}%")
+    
+    def get_speech(self):
+        """獲取語音段"""
+        return self.speech_buffer.get_array()
     
     def is_active(self):
-        """檢查是否正在錄音"""
+        """是否正在錄音"""
         return self.is_recording
 
 
+# ==================== Whisper STT ====================
+class FasterWhisperSTT:
+    """faster-whisper 語音轉文字"""
+    
+    def __init__(self, model_size="base", device="cpu", compute_type="int8", language="zh"):
+        self.language = language
+        self.model = None
+        self._load_model(model_size, device, compute_type)
+    
+    def _load_model(self, model_size, device, compute_type):
+        """載入模型"""
+        try:
+            print(f"⏳ 載入 Whisper 模型: {model_size}")
+            
+            self.model = WhisperModel(
+                model_size,
+                device=device,
+                compute_type=compute_type
+            )
+            
+            print("✅ Whisper 已載入")
+            
+        except Exception as e:
+            print(f"❌ Whisper 載入失敗: {e}")
+            self.model = None
+    
+    def transcribe(self, audio_int16):
+        """轉錄音訊"""
+        if self.model is None:
+            return ""
+        
+        try:
+            # 轉 float32
+            audio_float32 = audio_int16.astype(np.float32) / 32768.0
+            
+            # 轉錄
+            start_time = time.time()
+            segments, info = self.model.transcribe(
+                audio_float32,
+                language=self.language,
+                beam_size=5,
+                vad_filter=False,
+                without_timestamps=True
+            )
+            
+            text = "".join([segment.text for segment in segments]).strip()
+            
+            elapsed = time.time() - start_time
+            print(f"⏱️  轉錄耗時: {elapsed:.2f} 秒")
+            
+            return text
+            
+        except Exception as e:
+            print(f"❌ 轉錄錯誤: {e}")
+            return ""
+
+
 # ==================== 主系統 ====================
-class VoiceAssistantSTT:
-    """語音助理 STT 系統"""
+class VoiceAssistant:
+    """語音助理主系統"""
     
     def __init__(self):
-        """初始化系統"""
+        """初始化"""
         print("\n" + "="*60)
-        print("桌遊語音助理 - STT 系統 (faster-whisper)")
+        print("桌遊語音助理 - 完整系統")
         print("="*60)
         
         # 建立日誌目錄
         Config.LOG_DIR.mkdir(exist_ok=True)
         
         # 初始化組件
-        self.buffer = AudioBuffer(
-            Config.MAX_RECORDING_DURATION,
-            Config.SAMPLE_RATE
-        )
-        self.recorder = AudioRecorder(self.buffer)
-        self.vad = VADProcessor(
-            Config.SAMPLE_RATE,
-            Config.VAD_THRESHOLD
-        )
+        self.recorder = SmartAudioRecorder()
         self.stt = FasterWhisperSTT(
             Config.WHISPER_MODEL,
             Config.WHISPER_DEVICE,
@@ -379,35 +520,29 @@ class VoiceAssistantSTT:
         
         Config.print_config()
     
-    def process_audio(self):
-        """處理錄音的音訊"""
+    def process_speech(self):
+        """處理語音"""
         print("\n" + "-"*60)
-        print("⚙️  處理音訊...")
+        print("⚙️  處理語音...")
         
-        # 1. 獲取音訊數據（float32 格式）
-        audio_float32 = self.buffer.get_array()
-        duration = self.buffer.get_duration()
+        # 獲取語音段
+        audio_int16 = self.recorder.get_speech()
         
-        if len(audio_float32) == 0:
-            print("❌ 無音訊數據")
+        if len(audio_int16) == 0:
+            print("❌ 無語音數據")
             return None
         
-        print(f"📊 音訊時長: {duration:.2f} 秒")
-        print(f"📊 樣本數量: {len(audio_float32)}")
+        duration = len(audio_int16) / Config.SAMPLE_RATE
+        print(f"📊 語音時長: {duration:.2f} 秒")
         
-        # 2. VAD 檢測
-        print("🔍 VAD 檢測中...")
-        has_speech = self.vad.has_speech(audio_float32)
-        
-        if not has_speech:
-            print("❌ 未檢測到有效語音")
+        # 後置驗證
+        if not self._validate_speech(audio_int16):
+            print("❌ 語音驗證失敗")
             return None
         
-        print("✅ 檢測到語音")
-        
-        # 3. 語音轉文字
+        # 轉錄
         print("🗣️  語音轉文字中...")
-        text = self.stt.transcribe(audio_float32)
+        text = self.stt.transcribe(audio_int16)
         
         if not text:
             print("❌ 轉錄失敗或無內容")
@@ -415,38 +550,61 @@ class VoiceAssistantSTT:
         
         print(f"✅ 辨識結果: {text}")
         
-        # 4. 除錯模式：保存音訊
+        # 除錯模式
         if Config.DEBUG_MODE:
-            self._save_debug_audio(audio_float32, text)
+            self._save_debug_audio(audio_int16, text)
         
         print("-"*60 + "\n")
         return text
     
-    def _save_debug_audio(self, audio_float32, text):
-        """保存除錯音訊和文字"""
+    def _validate_speech(self, audio_int16):
+        """後置驗證"""
+        duration = len(audio_int16) / Config.SAMPLE_RATE
+        
+        # 時長檢查
+        if duration < Config.MIN_SPEECH_DURATION:
+            print(f"  ⚠️  語音太短: {duration:.2f}s")
+            return False
+        
+        if duration > Config.MAX_SPEECH_DURATION:
+            print(f"  ⚠️  語音太長: {duration:.2f}s")
+            return False
+        
+        # 能量檢查
+        energy = np.mean(np.abs(audio_int16))
+        if energy < Config.MIN_ENERGY_THRESHOLD:
+            print(f"  ⚠️  能量太低: {energy:.1f}")
+            return False
+        
+        print(f"✅ 驗證通過（時長: {duration:.2f}s, 能量: {energy:.1f}）")
+        return True
+    
+    def _save_debug_audio(self, audio_int16, text):
+        """保存除錯音訊"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
-        # 轉回 int16 保存
-        audio_int16 = (audio_float32 * 32768.0).astype(np.int16)
-        
         # 保存音訊
-        audio_file = Config.LOG_DIR / f"audio_{timestamp}.wav"
+        audio_file = Config.LOG_DIR / f"speech_{timestamp}.wav"
         wavfile.write(audio_file, Config.SAMPLE_RATE, audio_int16)
         
         # 保存文字
         text_file = Config.LOG_DIR / f"text_{timestamp}.txt"
         with open(text_file, 'w', encoding='utf-8') as f:
-            f.write(text)
+            f.write(f"辨識結果: {text}\n")
+            f.write(f"時長: {len(audio_int16)/Config.SAMPLE_RATE:.2f}s\n")
+            f.write(f"降噪: {'開啟' if Config.ENABLE_RNNOISE else '關閉'}\n")
+            f.write(f"VAD: WebRTC (mode={Config.WEBRTC_AGGRESSIVENESS})\n")
         
-        print(f"💾 已保存: {audio_file.name} & {text_file.name}")
+        print(f"💾 已保存: {audio_file.name}")
     
-    def run_interactive(self):
-        """運行互動模式"""
-        print("🎮 互動模式啟動")
+    def run(self):
+        """運行主循環"""
+        print("🎮 系統啟動")
         print("-"*60)
-        print("指令:")
-        print("  Enter      - 開始/停止錄音")
-        print("  q + Enter  - 退出")
+        print("操作說明:")
+        print("  1. 按 Enter 開始錄音")
+        print("  2. 按 Enter 停止錄音（或等待語音結束/超時）")
+        print("  3. 輸入 'q' 退出")
         print("-"*60)
         
         try:
@@ -457,48 +615,18 @@ class VoiceAssistantSTT:
                     print("👋 再見！")
                     break
                 
-                if not self.recorder.is_active():
-                    self.recorder.start()
-                    print("💡 按 Enter 停止錄音")
-                else:
-                    self.recorder.stop()
-                    self.process_audio()
-        
-        except KeyboardInterrupt:
-            print("\n\n👋 程式中斷")
-        
-        finally:
-            if self.recorder.is_active():
-                self.recorder.stop()
-    
-    def run_button_mode(self):
-        """運行按鈕模式（模擬）"""
-        print("🔘 按鈕模式啟動")
-        print("-"*60)
-        print("按 Enter 模擬按下按鈕（開始錄音）")
-        print("錄音將在靜音或超時後自動停止")
-        print("輸入 'q' 退出")
-        print("-"*60)
-        
-        try:
-            while True:
-                cmd = input("\n👉 按鈕: ").strip().lower()
-                
-                if cmd == 'q':
-                    print("👋 再見！")
-                    break
-                
+                # 開始錄音
                 self.recorder.start()
                 
-                start = time.time()
-                while self.recorder.is_active():
-                    time.sleep(0.1)
-                    if time.time() - start > Config.MAX_RECORDING_DURATION:
-                        print("⏱️  達到最大錄音時長")
-                        self.recorder.stop()
-                        break
+                # ✅ 等待停止（Enter 或自動）
+                print("📍 錄音中... 按 Enter 停止")
+                input()
                 
-                self.process_audio()
+                # 停止錄音
+                self.recorder.stop()
+                
+                # 處理語音
+                self.process_speech()
         
         except KeyboardInterrupt:
             print("\n\n👋 程式中斷")
@@ -508,21 +636,11 @@ class VoiceAssistantSTT:
                 self.recorder.stop()
 
 
-# ==================== 主程式入口 ====================
+# ==================== 主程式 ====================
 def main():
     """主程式"""
-    assistant = VoiceAssistantSTT()
-    
-    print("選擇運行模式:")
-    print("  1 - 互動模式（手動控制錄音）")
-    print("  2 - 按鈕模式（自動停止）")
-    
-    choice = input("\n請選擇 (1/2): ").strip()
-    
-    if choice == '2':
-        assistant.run_button_mode()
-    else:
-        assistant.run_interactive()
+    assistant = VoiceAssistant()
+    assistant.run()
 
 
 if __name__ == "__main__":
