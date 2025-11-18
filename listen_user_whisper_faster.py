@@ -17,7 +17,7 @@ import threading
 from datetime import datetime
 from collections import deque
 from pathlib import Path
-
+import gemini_flash_test
 # 檢查依賴
 try:
     from faster_whisper import WhisperModel
@@ -79,8 +79,7 @@ class Config:
     MIN_ENERGY_THRESHOLD = 50
     
     # Whisper
-    WHISPER_MODEL = "medium" \
-    ""
+    WHISPER_MODEL = "medium" 
     WHISPER_DEVICE = "cpu"
     WHISPER_COMPUTE_TYPE = "int8"
     WHISPER_LANGUAGE = "zh"
@@ -626,7 +625,8 @@ class VoiceAssistant:
                 self.recorder.stop()
                 
                 # 處理語音
-                self.process_speech()
+                userAsk=self.process_speech()
+                gemini_flash_test.try_cloud_LLM(userAsk)
         
         except KeyboardInterrupt:
             print("\n\n👋 程式中斷")
