@@ -15,7 +15,7 @@ from datetime import datetime
 from collections import deque
 from pathlib import Path
 import threading
-
+import edgTTS
 # 檢查依賴
 try:
     from pywhispercpp.model import Model as WhisperModel

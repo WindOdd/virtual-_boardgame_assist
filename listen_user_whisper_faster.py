@@ -18,6 +18,8 @@ from datetime import datetime
 from collections import deque
 from pathlib import Path
 import gemini_flash_test
+import edgTTS
+import asyncio
 # 檢查依賴
 try:
     from faster_whisper import WhisperModel
@@ -69,8 +71,8 @@ class Config:
     
     # 狀態機
     SPEECH_START_FRAMES = 3
-    SPEECH_END_FRAMES = 15
-    PRE_SPEECH_FRAMES = 5
+    SPEECH_END_FRAMES = 25
+    PRE_SPEECH_FRAMES = 10
     POST_SPEECH_FRAMES = 5
     
     # 後置驗證
@@ -79,7 +81,7 @@ class Config:
     MIN_ENERGY_THRESHOLD = 50
     
     # Whisper
-    WHISPER_MODEL = "medium" 
+    WHISPER_MODEL = "small" 
     WHISPER_DEVICE = "cpu"
     WHISPER_COMPUTE_TYPE = "int8"
     WHISPER_LANGUAGE = "zh"
@@ -626,8 +628,12 @@ class VoiceAssistant:
                 
                 # 處理語音
                 userAsk=self.process_speech()
-                gemini_flash_test.try_cloud_LLM(userAsk)
-        
+                reply_text=""
+                if userAsk:
+                    reply_text = gemini_flash_test.try_cloud_LLM(userAsk)
+                if reply_text:
+                    asyncio.run(edgTTS.play_audio_stream(reply_text))
+                    time.sleep(3)
         except KeyboardInterrupt:
             print("\n\n👋 程式中斷")
         
