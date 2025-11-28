@@ -25,18 +25,21 @@ except ImportError:
     exit(1)
 
 try:
-    import torch
-except ImportError:
-    print("❌ 請安裝: pip install torch")
-    exit(1)
-
-try:
     from scipy.io import wavfile
 except ImportError:
     print("❌ 請安裝: pip install scipy")
     exit(1)
-
-
+try:
+    import webrtcvad
+except ImportError:
+    print("❌ 請安裝: pip install webrtcvad")
+    exit(1)
+try:
+    from pyrnnoise import RNNoise
+    RNNOISE_AVAILABLE = True
+except ImportError:
+    RNNOISE_AVAILABLE = False
+    print("⚠️  RNNoise 未安裝（可選），降噪功能不可用")
 # ==================== 配置類 ====================
 class Config:
     """系統配置"""
@@ -301,9 +304,9 @@ class WhisperSTT:
                 print(f"❌ 模型檔案不存在: {model_path}")
                 print("\n請選擇以下方式下載模型：")
                 print("\n方式 1: 使用 wget (Linux/Mac)")
-                print("  wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
+                print(f"  wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{model_path}")
                 print("\n方式 2: 使用 curl")
-                print("  curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
+                print(f"  curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{model_path}")
                 print("\n方式 3: 運行下載腳本")
                 print("  python download_whisper_model.py")
                 print("\n方式 4: 手動從瀏覽器下載")
@@ -342,7 +345,7 @@ class WhisperSTT:
         try:
             import urllib.request
             
-            url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin"
+            url = f"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{model_path}"
             print(f"📥 下載中: {url}")
             print("   這可能需要幾分鐘...")
             
