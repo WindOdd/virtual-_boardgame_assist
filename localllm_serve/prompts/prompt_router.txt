@@ -9,7 +9,5 @@
 3. POLITICAL (政治) -> {{"type": "POLITICAL"}}
 4. UNKNOWN (其他) -> {{"type": "UNKNOWN"}}
 
-[用戶輸入]
-{user_text}
-
-[輸出]
+[輸出要求]
+只輸出 JSON，不要 Markdown，不要解釋。
