@@ -3,7 +3,11 @@ Gemini RAG 服務 - 遊戲規則查詢
 使用新版 Google Gen AI SDK (google-genai)
 """
 
+import sys
 import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 import json
 import logging
 from typing import List, Dict, Optional
@@ -14,7 +18,7 @@ from google import genai
 from google.genai import types
 
 # 使用共用工具庫
-from localllm_serve.utils.boardgame_utils import ConfigLoader, PromptLoader, ConfigValidator
+from utils.boardgame_utils import ConfigLoader, PromptLoader, ConfigValidator
 
 logger = logging.getLogger(__name__)
 
