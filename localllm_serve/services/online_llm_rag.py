@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 
 # 使用共用工具庫
-from localllm_serve.utils import ConfigLoader, PromptLoader, ConfigValidator
+from localllm_serve.utils.boardgame_utils import ConfigLoader, PromptLoader, ConfigValidator
 
 logger = logging.getLogger(__name__)
 
