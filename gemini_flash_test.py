@@ -32,15 +32,18 @@ def try_cloud_LLM(user_question:str):
         
         # 使用串流 (Stream) 可以讓使用者感覺反應較快
         print("🤖 Gemini 思考中...", end="", flush=True)
-        
+        gemini_config=types.GenerateContentConfig(
+            system_instruction=STORE_CLERK_INSTRUCTION,
+            temperature=0.3,
+            top_p=0.9,
+            top_k=20,
+            max_output_tokens= 300,
+        )
         full_response = ""
         response_stream = client.models.generate_content_stream(
             model=model_type,
             contents=types.Part.from_text(text=user_question),
-            config=types.GenerateContentConfig(
-                system_instruction=STORE_CLERK_INSTRUCTION,
-                temperature=0.3,
-            )
+            config=gemini_config
         )
         
         print("\n虛擬店員: ", end="")

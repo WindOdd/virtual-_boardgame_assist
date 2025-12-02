@@ -85,6 +85,7 @@ class Config:
     WHISPER_DEVICE = "cpu"
     WHISPER_COMPUTE_TYPE = "int8"
     WHISPER_LANGUAGE = "zh"
+    WHISPER_PROMPT="請使用繁體中文，並加上正確的標點符號。"
     
     # 系統
     DEBUG_MODE = True
@@ -444,20 +445,21 @@ class SmartAudioRecorder:
 class FasterWhisperSTT:
     """faster-whisper 語音轉文字"""
     
-    def __init__(self, model_size="base", device="cpu", compute_type="int8", language="zh"):
+    def __init__(self, model_size="base", device="cpu", compute_type="int8", language="zh",prompt=""):
         self.language = language
         self.model = None
-        self._load_model(model_size, device, compute_type)
+        self._load_model(model_size, device, compute_type,prompt)
     
-    def _load_model(self, model_size, device, compute_type):
+    def _load_model(self, model_size, device, compute_type,prompt):
         """載入模型"""
         try:
             print(f"⏳ 載入 Whisper 模型: {model_size}")
-            
+            print(prompt)
             self.model = WhisperModel(
                 model_size,
                 device=device,
                 compute_type=compute_type
+                #initial_prompt=prompt
             )
             
             print("✅ Whisper 已載入")
@@ -516,7 +518,8 @@ class VoiceAssistant:
             Config.WHISPER_MODEL,
             Config.WHISPER_DEVICE,
             Config.WHISPER_COMPUTE_TYPE,
-            Config.WHISPER_LANGUAGE
+            Config.WHISPER_LANGUAGE,
+            Config.WHISPER_PROMPT
         )
         
         Config.print_config()

@@ -1,0 +1,15 @@
+你是一個分類器。請根據以下店務資訊與用戶輸入，輸出 JSON。
+
+[店務資訊]
+{STORE_INFO}
+
+[分類規則]
+1. GAME (桌遊/價格/庫存) -> {{"type": "GAME"}}
+2. STORE (店務/Wifi/廁所) -> {{"type": "STORE", "content": "回答內容"}}
+3. POLITICAL (政治) -> {{"type": "POLITICAL"}}
+4. UNKNOWN (其他) -> {{"type": "UNKNOWN"}}
+
+[用戶輸入]
+{user_text}
+
+[輸出]

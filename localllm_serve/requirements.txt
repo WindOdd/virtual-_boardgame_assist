@@ -1,4 +1,13 @@
-fastapi>=0.100.0
-uvicorn[standard]>=0.20.0
-pydantic>=2.0.0
-ollama>=0.1.0
+fastapi==0.109.0
+uvicorn==0.27.0
+httpx==0.26.0
+pydantic==2.5.3
+python-dotenv==1.0.0
+pyyaml==6.0.1
+
+# 新版 Google Gen AI SDK
+google-genai>=1.0.0
+
+# 開發模式：使用本地 utils
+# (假設 utils/ 是 git submodule)
+-e ./utils

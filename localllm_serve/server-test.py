@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 from ollama import Client as OllamaClient
-
+from localllm_serve.utils.boardgame_utils import ConfigLoader, PromptLoader, ConfigValidator
 # ==========================================
 # 1. 全局設定
 # ==========================================
