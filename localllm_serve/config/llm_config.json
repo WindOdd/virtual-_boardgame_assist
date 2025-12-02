@@ -1,6 +1,6 @@
 {
   "model_settings": {
-    "model_name": "qwen3:4b",
+    "model_name": "qwen3:4b-instruct",
     "host": "http://localhost:11434"
   },
   "router_settings": {

@@ -22,7 +22,7 @@ class LocalLLMService:
         
         # 2. 設定 Ollama Client
         model_cfg = self.config["model_settings"]
-        self.model_name = model_cfg.get("model_name", "qwen2.5:3b")
+        self.model_name = model_cfg.get("model_name", "qwen3:4b-instruct")
         self.host = model_cfg.get("host", "http://localhost:11434")
         
         try:
