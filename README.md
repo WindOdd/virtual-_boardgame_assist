@@ -1,24 +1,5 @@
-# 🎲 **Board Game Store -- 智慧語音助理系統**
-
-::: {align="center"}
-`<img src="https://img.shields.io/badge/AI%20Voice%20Assistant-Boardgame-blueviolet?style=for-the-badge" />`{=html}
-`<img src="https://img.shields.io/badge/Raspberry%20Pi%205-Edge%20Client-red?style=for-the-badge" />`{=html}
-`<img src="https://img.shields.io/badge/Jetson%20Orin%20Nano-AI%20Core-green?style=for-the-badge" />`{=html}
-`<img src="https://img.shields.io/badge/Local%20LLM-Qwen%203%204B-orange?style=for-the-badge" />`{=html}
-`<img src="https://img.shields.io/badge/Cloud%20LLM-Gemini%202.5%20Flash-yellow?style=for-the-badge" />`{=html}
-`<img src="https://img.shields.io/badge/LICENSE-MIT-lightgrey?style=for-the-badge" />`{=html}
-:::
-
-::: {align="center"}
-`<img src="https://img.icons8.com/color/240/board-games.png" width="160" alt="board game icon"/>`{=html}
-```{=html}
-<h3>
-```
-低延遲．高隱私．高準確度的桌遊店語音助理系統
-```{=html}
-</h3>
-```
-:::
+🎲 Board Game Store — 智慧語音助理系統
+<div align="center"> <img src="https://img.shields.io/badge/AI%20Voice%20Assistant-Boardgame-blueviolet?style=for-the-badge" /> <img src="https://img.shields.io/badge/Raspberry%20Pi%205-Edge%20Client-red?style=for-the-badge" /> <img src="https://img.shields.io/badge/Jetson%20Orin%20Nano-AI%20Core-green?style=for-the-badge" /> <img src="https://img.shields.io/badge/Local%20LLM-Qwen%203%204B-orange?style=for-the-badge" /> <img src="https://img.shields.io/badge/Cloud%20LLM-Gemini%202.5%20Flash-yellow?style=for-the-badge" /> <img src="https://img.shields.io/badge/LICENSE-MIT-lightgrey?style=for-the-badge" /> </div> <br/> <div align="center"> <img src="https://img.icons8.com/color/240/board-games.png" width="160" alt="board game icon"/> <h3>低延遲・高隱私・高準確度的桌遊店語音助理系統</h3> </div>
 
 ## 📘 目錄
 
