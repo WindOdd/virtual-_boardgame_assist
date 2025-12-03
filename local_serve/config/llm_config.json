@@ -1,0 +1,16 @@
+{
+  "model_settings": {
+    "model_name": "qwen3:4b-instruct",
+    "host": "http://localhost:11434"
+  },
+  "router_settings": {
+    "prompt_file": "prompt_router",
+    "temperature": 0.1,
+    "top_p": 0.9
+  },
+  "joker_settings": {
+    "prompt_file": "prompt_joker",
+    "temperature": 0.8,
+    "top_p": 0.95
+  }
+}

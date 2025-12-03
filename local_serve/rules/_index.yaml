@@ -1,0 +1,35 @@
+- id: avalon
+  name: 阿瓦隆
+  filename: avalon.md
+  enabled: true
+  aliases:
+    - Avalon
+    - 抵抗組織
+    - 阿瓦隆
+  keywords:
+    - 梅林
+    - 刺客
+    - 派西維爾
+    - 莫甘娜
+    - 奧伯倫
+    - 湖中女神
+    - 任務
+    - 壞人
+
+- id: carcassonne
+  name: 卡卡頌
+  filename: carcassonne.md
+  enabled: true
+  aliases:
+    - Carcassonne
+    - 卡卡送
+  keywords:
+    - 米寶
+    - 板塊
+    - 修道院
+    - 農夫
+    - 城堡
+    - 道路
+    - 草原
+    - 主教
+    - 計分
