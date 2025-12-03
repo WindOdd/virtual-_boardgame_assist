@@ -1,293 +1,133 @@
-♟️ 桌遊店智慧語音助理系統開發規劃書
-📄 專案概述 (Executive Summary) 
+# 🎲 **Board Game Store -- 智慧語音助理系統**
 
-本計畫旨在開發一套「低延遲、高隱私、高準確度」的實體桌遊店專用語音助理 。
+::: {align="center"}
+`<img src="https://img.shields.io/badge/AI%20Voice%20Assistant-Boardgame-blueviolet?style=for-the-badge" />`{=html}
+`<img src="https://img.shields.io/badge/Raspberry%20Pi%205-Edge%20Client-red?style=for-the-badge" />`{=html}
+`<img src="https://img.shields.io/badge/Jetson%20Orin%20Nano-AI%20Core-green?style=for-the-badge" />`{=html}
+`<img src="https://img.shields.io/badge/Local%20LLM-Qwen%203%204B-orange?style=for-the-badge" />`{=html}
+`<img src="https://img.shields.io/badge/Cloud%20LLM-Gemini%202.5%20Flash-yellow?style=for-the-badge" />`{=html}
+`<img src="https://img.shields.io/badge/LICENSE-MIT-lightgrey?style=for-the-badge" />`{=html}
+:::
 
-🎯 專案目的 
+::: {align="center"}
+`<img src="https://img.icons8.com/color/240/board-games.png" width="160" alt="board game icon"/>`{=html}
+```{=html}
+<h3>
+```
+低延遲．高隱私．高準確度的桌遊店語音助理系統
+```{=html}
+</h3>
+```
+:::
 
-系統將在吵雜的店面環境中，透過語音介面即時解決顧客的兩大需求 ：
+## 📘 目錄
 
+-   [🚀 專案介紹](#-專案介紹)
+-   [🧩 系統架構](#-系統架構)
+-   [🖥️ 硬體規格](#️-硬體規格)
+-   [🧠 軟體技術堆疊](#-軟體技術堆疊)
+-   [🔁 系統運作流程](#-系統運作流程)
+-   [📄 規則書與資料格式](#-規則書與資料格式)
+-   [🗺️ 開發時程](#️-開發時程)
+-   [⚠️ 風險管理](#️-風險管理)
+-   [📜 授權](#-授權)
 
-桌遊規則查詢：解決複雜的規則判例與教學問題 。
+# 🚀 專案介紹
 
+本專案致力於打造 **實體桌遊店專用智慧語音助理系統**，提供：
 
-店務資訊諮詢：快速回答 Wifi、廁所、計費等固定問題 。
+🎙️ **桌遊規則查詢**\
+📚 **複雜規則推理**\
+🛎️ **店務資訊回答**\
+⚡ **低延遲、隱私安全的本地化語音體驗**
 
-💡 核心策略 
+採用 **Edge + Central Core** 混合架構，結合 **本地 STT/TTS、Local
+LLM、Cloud LLM** 達成效能與成本最優化。
 
-採用「邊緣採集 (Edge) + 中央路由 (Central Core)」的混合架構 。結合本地輕量化模型 (Local LLM) 與雲端強大模型 (Online LLM)，以達成成本與效能的最佳平衡 。
-採用「邊緣採集 (Edge) + 中央路由 (Central Core)」的混合架構 。結合本地輕量化模型 (Local LLM) 與雲端強大模型 (Online LLM)，以達成成本與效能的最佳平衡 。
+# 🧩 系統架構
 
-🏗️ 系統架構 (System Architecture) 
+## Edge（桌邊端：Raspberry Pi 5）
 
-1. 桌邊端 (Edge Client) - Raspberry Pi 5 
+負責 **聽**（STT）與 **說**（TTS），僅傳送純文字到中央。
 
+## Central Core（Jetson Orin Nano）
 
-角色：負責「聽」與「說」 。
+負責 **推理、路由、記憶、協作多桌**。
 
+### 路由邏輯
 
-任務：在本地端完成語音訊號處理 (STT/TTS)，只傳送純文字數據，確保極致反應速度並減少頻寬佔用 。
+  類別      說明              處理方式
+  --------- ----------------- -----------
+  STORE     店務資訊          Local LLM
+  GAME      桌遊規則          Cloud LLM
+  UNKNOWN   閒聊 / 無關問題   拒答
 
+# 🖥️ 硬體規格
 
-部署位置：每張桌子配置一台 。
+## Edge（Raspberry Pi 5）
 
-2. 中央端 (Central Core) - NVIDIA Jetson Orin Nano 
+-   Raspberry Pi 5 (8GB)
+-   主動式散熱器
+-   USB 麥克風（含 AEC）
+-   USB / 3.5mm 喇叭
+-   Ethernet 建議使用
 
+## Central（Jetson Orin Nano）
 
-角色：負責「思考」、「記憶」與「路由」 。
+-   Jetson Orin Nano 8GB
+-   512GB NVMe SSD
+-   Headless mode
+-   Gigabit Ethernet
 
+# 🧠 軟體技術堆疊
 
-任務：作為全店的大腦，管理多桌對話狀態、進行意圖分類，並調度本地或雲端模型生成回應 。
+## Edge（Pi 5）
 
+-   Whisper.cpp (Medium q5_0)
+-   Piper TTS zh_TW
+-   Python 控制
 
-部署位置：店內機房或櫃檯（全店共用一台） 。
-類型,組件名稱,規格細節,注意事項,部署位置
-核心主機,Raspberry Pi 5,8GB RAM ,-,桌邊端 
-散熱,原廠主動式散熱器,Active Cooler ,必要配件，防止高負載過熱 。,桌邊端 
-聲音輸入,USB 全向性會議麥克風,建議具備硬體 AEC 回音消除功能 。,-,桌邊端 
-聲音輸出,USB 供電小喇叭/3.5mm 音箱,-,-,桌邊端 
-網路連線,有線網路 (Ethernet),-,優先連線方式 。,桌邊端 
-核心主機,NVIDIA Jetson Orin Nano Developer Kit,8GB RAM ,-,中央伺服器 
-儲存空間,NVMe SSD,512GB (Gen3/Gen4) ,-,中央伺服器 
-作業系統,Headless Mode,無桌面模式 ,務必關閉圖形介面，以釋放約 1.5GB 記憶體給 AI 模型使用 。,中央伺服器 
-網路連線,Gigabit Ethernet,必須有線連接 。,-,中央伺服器 
+## Central（Orin Nano）
 
-💻 軟體技術堆疊 (Software Stack) 
+-   LangChain + LangGraph
+-   Qwen 3 4B Int4（Local）
+-   Gemini 2.5 Flash（Cloud）
 
-1. 桌邊端 (Raspberry Pi 5)
+# 🔁 系統運作流程
 
-技術類型,軟體/模型,細節/任務
-語音轉文字 (STT),Whisper.cpp ,模型：Medium 、量化：q5_0 (5-bit Integer) 、優化：啟用 Arm NEON 指令集加速 (純 CPU 推論) 。
-文字轉語音 (TTS),Piper TTS ,部署：On-device (本地運行) 、語音包：zh_TW (繁體中文) 。
-控制邏輯,Python ,負責 Audio I/O、HTTP Request 。
+1.  Pi 5：Whisper STT\
+2.  Router：Qwen Intent 分類\
+3.  STORE → Local 回答\
+4.  GAME → 規則書 + 問題 → Gemini 推理\
+5.  Pi 5：TTS 播放
 
+支援 **多桌最多 8 桌**。
 
-好的，我會根據您提供的「桌遊店智慧語音助理系統開發規劃書」內容，將其重構成適合存成 Markdown 檔案的格式。
+# 📄 規則書與資料格式
 
-♟️ 桌遊店智慧語音助理系統開發規劃書
-📄 專案概述 (Executive Summary) 
+## Markdown 規則書
 
-本計畫旨在開發一套「低延遲、高隱私、高準確度」的實體桌遊店專用語音助理 。
+-   清楚分層
+-   圖解 → 文字描述
+-   不使用 context caching
 
-🎯 專案目的 
+## 店務資料
 
-系統將在吵雜的店面環境中，透過語音介面即時解決顧客的兩大需求 ：
+Hard-coded：Wifi / 廁所 / 收費方式
 
+# 🗺️ 開發時程
 
-桌遊規則查詢：解決複雜的規則判例與教學問題 。
+-   Phase 1：基礎建設（Pi + Orin）
+-   Phase 2：路由大腦（LangGraph）
+-   Phase 3：整合測試
+-   Phase 4：8 桌壓力測試
 
+# ⚠️ 風險管理
 
-店務資訊諮詢：快速回答 Wifi、廁所、計費等固定問題 。
+-   Orin 記憶體不足 → Int4 + Headless
+-   噪音環境 → Whisper Medium + AEC
+-   網路延遲 → 必須有線網路
 
-💡 核心策略 
+# 📜 授權
 
-採用「邊緣採集 (Edge) + 中央路由 (Central Core)」的混合架構 。結合本地輕量化模型 (Local LLM) 與雲端強大模型 (Online LLM)，以達成成本與效能的最佳平衡 。
-
-🏗️ 系統架構 (System Architecture) 
-
-1. 桌邊端 (Edge Client) - Raspberry Pi 5 
-
-
-角色：負責「聽」與「說」 。
-
-
-任務：在本地端完成語音訊號處理 (STT/TTS)，只傳送純文字數據，確保極致反應速度並減少頻寬佔用 。
-
-
-部署位置：每張桌子配置一台 。
-
-2. 中央端 (Central Core) - NVIDIA Jetson Orin Nano 
-
-
-角色：負責「思考」、「記憶」與「路由」 。
-
-
-任務：作為全店的大腦，管理多桌對話狀態、進行意圖分類，並調度本地或雲端模型生成回應 。
-
-
-部署位置：店內機房或櫃檯（全店共用一台） 。
-
-📦 硬體規格清單 (Hardware BOM) 
-
-類型	組件名稱	規格細節	注意事項	部署位置
-核心主機	Raspberry Pi 5	
-8GB RAM 
-
--	
-桌邊端 
-
-散熱	原廠主動式散熱器	
-Active Cooler 
-
-
-必要配件，防止高負載過熱 。
-
-桌邊端 
-
-聲音輸入	USB 全向性會議麥克風	
-建議具備硬體 AEC 回音消除功能 。
-
--	
-桌邊端 
-
-聲音輸出	USB 供電小喇叭/3.5mm 音箱	-	-	
-桌邊端 
-
-網路連線	有線網路 (Ethernet)	-	
-優先連線方式 。
-
-桌邊端 
-
-核心主機	NVIDIA Jetson Orin Nano Developer Kit	
-8GB RAM 
-
--	
-中央伺服器 
-
-儲存空間	NVMe SSD	
-512GB (Gen3/Gen4) 
-
--	
-中央伺服器 
-
-作業系統	Headless Mode	
-無桌面模式 
-
-
-務必關閉圖形介面，以釋放約 1.5GB 記憶體給 AI 模型使用 。
-
-中央伺服器 
-
-網路連線	Gigabit Ethernet	
-必須有線連接 。
-
--	
-中央伺服器 
-
-💻 軟體技術堆疊 (Software Stack) 
-
-1. 桌邊端 (Raspberry Pi 5) 
-
-技術類型	軟體/模型	細節/任務
-語音轉文字 (STT)	
-Whisper.cpp 
-
-模型：Medium 、量化：q5_0 (5-bit Integer) 、優化：啟用 Arm NEON 指令集加速 (純 CPU 推論) 。
-
-文字轉語音 (TTS)	
-Piper TTS 
-
-部署：On-device (本地運行) 、語音包：zh_TW (繁體中文) 。
-
-控制邏輯	
-Python 
-
-負責 Audio I/O、HTTP Request 。
-
-2. 中央端 (Jetson Orin Nano)
-
-技術類型,軟體/模型,細節/任務
-流程框架,LangChain + LangGraph ,管理狀態機與路由 。
-模型引擎,Jetson Containers ,搭配 Ollama 或 NanoLLM 。
-本地模型 (Router/Store),Qwen 3 4B Instruct (2507版) ,量化：Int4 (GGUF/AWQ) 。任務：意圖分類、回答店務、拒絕閒聊 。
-雲端模型 (Game Rules),Google Gemini 2.5 Flash (via Vertex AI) ,任務：閱讀規則書 (Long Context)，回答複雜邏輯 。
-
-🧠 核心運作邏輯 (Logic Workflow) 
-
-系統將支援最多 8 桌 同時運作，每桌獨立狀態 。
-
-1. 輸入與記憶 (Input Node) 
-
-
-接收資料：{table_id, game_name, user_text} 。
-
-
-滑動視窗記憶 (Sliding Window) ：
-
-
-長度：最近 8 輪 (8 Turns) 。
-
-
-目的：支援代名詞理解 (如「它」、「那個」) 與連續追問 。
-
-2. 智慧路由 (Router Node - Qwen 3 4B) 
-
-將用戶問題分為三類 ：
-
-
-[STORE] 店務類：Wifi、廁所、低消、營業時間 。
-
-
-[GAME] 桌遊類：規則疑問、玩法教學 。
-
-
-[UNKNOWN] 其他類：閒聊、政治、無關話題 。
-
-3. 分支處理 (Branching) 
-
-
-路徑 A：本地極速回應 ([STORE]) 
-
-
-處理方式：Local LLM 根據 System Prompt 內的店務資料，直接生成回答 。
-
-
-優點：零延遲、零 API 成本 。
-
-
-路徑 B：雲端深度推理 ([GAME]) 
-
-
-處理方式：系統讀取對應遊戲的 Markdown 規則書 ，呼叫 Gemini 2.5 Flash 。
-
-
-
-Prompt 結構：規則書 + (8輪歷史對話) + 當前問題 。
-
-
-路徑 C：拒絕回應 ([UNKNOWN]) 
-
-
-回傳訊息：「抱歉，我只能回答桌遊規則或店內服務相關的問題。」 。
-
-📊 資料與文件規範 (Data Strategy) 
-
-1. 桌遊規則書 (Markdown) 
-
-
-格式：標準 Markdown 。
-
-
-撰寫規範 ：
-
-使用 #, ## 明確區分層級 。
-
-將圖示邏輯轉化為文字描述 (例如：「不能斜角擺放」) 。
-
-去除無意義的裝飾性文字 。
-
-
-快取策略：不使用 Context Caching (因 Flash 成本低且單本規則書未達門檻) 。
-
-2. 店務資訊庫 (Hard-coded) 
-
-
-包含內容：Wifi SSID/密碼、廁所位置引導、收費標準 。
-
-
-儲存方式：直接寫入 Python 程式碼或 Local LLM 的 System Prompt 中 。
-
-🗺️ 專案執行階段 (Roadmap)
-
-階段,標題,核心任務
-Phase 1,基礎建設 (Foundation) ,[Server] 架設 Orin Nano Headless 環境，部署 Qwen 3 4B (Int4) 。[Client] 架設 Pi 5，測試 Whisper.cpp 中文辨識率與 Piper TTS 發音 。[Network] 確保兩端透過內網 (LAN) 連線成功 。
-Phase 2,邏輯核心 (The Brain) ,[Server] 使用 LangGraph 實作路由狀態機 。[Server] 整合 Gemini Vertex AI SDK 。[Server] 實作多桌記憶模組 (Based on Table ID) 。[Data] 製作第一份《卡卡頌》Markdown 規則書 。
-Phase 3,整合與驗證 (Integration) ,[System] 端對端串接 (Mic -> Pi 5 -> Orin -> Model -> Pi 5 -> Speaker) 。[UX] 實作 Client 端「思考中」音效 。[Test] 單桌 POC 實測：Wifi 問答 (秒回)、規則問答 (準確)、閒聊 (拒絕) 。
-Phase 4,壓力測試 (Deployment) ,[System] 模擬 8 桌並發請求，測試 Orin Nano 的排隊 (Queuing) 狀況 。[System] 確認長時間運作下的記憶體釋放狀況 (Memory Leak Check) 。
-
-⚠️ 風險評估與對策 (Risk Management)
-
-風險項目,對策
-Orin Nano 記憶體不足 (OOM) ,嚴格執行 Headless 模式 ；確保 Qwen 使用 Int4 量化 ；若 8 桌併發導致記憶體吃緊，可將記憶視窗從 8 輪降為 5 輪 。
-噪音干擾導致辨識錯誤 ,使用 Whisper Medium 模型 (非 Small) ；選用指向性麥克風 ；在 Router Prompt 加入模糊修正指令 。
-網路延遲 ,Server 端務必使用有線網路 ；選用 Gemini 2.5 Flash (低延遲版) 。
+MIT License
