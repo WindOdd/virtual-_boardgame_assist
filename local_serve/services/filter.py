@@ -28,7 +28,7 @@ class FilterService:
         for w in self.blocklist:
             if w in text:
                 return {
-                    "answer": "抱歉，我們不討論政治或敏感議題喔！",
+                    "answer": "我沒辦法回答這樣的問題喔",
                     "source": "FILTER",
                     "category": "POLITICAL"
                 }
