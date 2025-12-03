@@ -1,6 +1,0 @@
-model_name: "gemini-2.5-flash"
-generation_config:
-  temperature: 0.5
-  top_p: 0.95
-  max_output_tokens: 1024
-system_prompt_file: "system_role"
