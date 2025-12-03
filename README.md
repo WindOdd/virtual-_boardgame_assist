@@ -17,9 +17,9 @@
 
 本專案致力於打造 **實體桌遊店專用智慧語音助理系統**，提供：
 
-🎙️ **桌遊規則查詢**\
-📚 **複雜規則推理**\
-🛎️ **店務資訊回答**\
+🎙️ **桌遊規則查詢**
+📚 **複雜規則推理**
+🛎️ **店務資訊回答**
 ⚡ **低延遲、隱私安全的本地化語音體驗**
 
 採用 **Edge + Central Core** 混合架構，結合 **本地 STT/TTS、Local
@@ -76,10 +76,10 @@ LLM、Cloud LLM** 達成效能與成本最優化。
 
 # 🔁 系統運作流程
 
-1.  Pi 5：Whisper STT\
-2.  Router：Qwen Intent 分類\
-3.  STORE → Local 回答\
-4.  GAME → 規則書 + 問題 → Gemini 推理\
+1.  Pi 5：Whisper STT
+2.  Router：Qwen Intent 分類
+3.  STORE → Local 回答
+4.  GAME → 規則書 + 問題 → Gemini 推理
 5.  Pi 5：TTS 播放
 
 支援 **多桌最多 8 桌**。
