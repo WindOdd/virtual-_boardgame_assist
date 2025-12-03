@@ -12,7 +12,6 @@ def try_cloud_LLM(user_question:str):
     6.你目前只負責遊戲：卡卡頌\
     7.如果使用者詢問不相干的問題就回答請他找其他店員")
     model_type="gemini-2.5-flash"
-    #client = genai.Client(api_key='AIzaSyB8aRjvcU658tRxYi2Wa0CNZGSSjrijhu8')
     # response = client.models.generate_content(
     # model=model_type,
     # contents=types.Part.from_text(text=user_question),
@@ -23,7 +22,6 @@ def try_cloud_LLM(user_question:str):
     try:
         # 修正 2: 從環境變數讀取 Key，或在此處暫時貼上(但不建議提交)
         #api_key = os.environ.get("GEMINI_API_KEY", "你的_NEW_API_KEY")
-        api_key='AIzaSyB8aRjvcU658tRxYi2Wa0CNZGSSjrijhu8'
         if not api_key or "你的" in api_key:
              print("❌ 錯誤：請設定正確的 Gemini API Key")
              return None
