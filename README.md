@@ -67,7 +67,9 @@ LLM、Cloud LLM** 達成效能與成本最優化。
 -   Whisper.cpp (Medium q5_0)
 -   Piper TTS zh_TW
 -   Python 控制
-
+## Arndoid pad or iPad
+-  將使用系統所原生的STT
+-  撰寫相對應的App
 ## Central（Orin Nano）
 
 -   LangChain + LangGraph
@@ -76,7 +78,7 @@ LLM、Cloud LLM** 達成效能與成本最優化。
 
 # 🔁 系統運作流程
 
-1.  Pi 5：Whisper STT
+1.  Pi 5：Whisper STT  / 實際場景將使用 Arndoid pad or ipad (10.1寸)
 2.  Router：Qwen Intent 分類
 3.  STORE → Local 回答
 4.  GAME → 規則書 + 問題 → Gemini 推理
