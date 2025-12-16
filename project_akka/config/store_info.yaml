@@ -1,0 +1,118 @@
+# Project Akka v9.5 - Store Information & Response Pools
+# Baker Street Board Games (貝克街桌遊店)
+
+store:
+  name: "Baker Street Board Games"
+  display_name: "貝克街桌遊店"
+
+# ============================================
+# Common Chat - Fast Path Triggers (Stage II)
+# ============================================
+common_chat:
+  greetings:
+    keywords:
+      - "你好"
+      - "早安"
+      - "嗨"
+      - "哈囉"
+      - "Hello"
+      - "Hi"
+    responses:
+      - "喲！準備好決鬥了嗎？"
+      - "早安！今天適合玩策略遊戲。"
+      - "嗨！歡迎來到貝克街，今天想玩什麼？"
+      - "哈囉！有什麼我可以幫忙的嗎？"
+
+  thanks:
+    keywords:
+      - "謝謝"
+      - "感謝"
+      - "Thanks"
+      - "Thank you"
+    responses:
+      - "不客氣！玩得開心最重要！"
+      - "隨時為您服務！"
+      - "小事一樁，有問題再問我！"
+
+  identity:
+    keywords:
+      - "你是誰"
+      - "你叫什麼"
+      - "介紹自己"
+    responses:
+      - "我是貝克街的虛擬店員，專門解答桌遊問題！"
+      - "我是這裡的桌遊小幫手，規則、推薦都可以問我喔！"
+
+# ============================================
+# Response Pools - Intent-Based Responses
+# ============================================
+responses_pool:
+  wifi:
+    - "Wifi 帳號 BakerStreet_Guest，密碼 playmoregames！"
+    - "網路密碼是 playmoregames，帳號 BakerStreet_Guest 喔！"
+    - "Wifi？沒問題！帳號 BakerStreet_Guest，密碼 playmoregames。"
+
+  toilet:
+    - "廁所在店內左後方，跟著指示牌走就到囉！"
+    - "洗手間在後面左轉，門上有標示！"
+    - "往店裡面走，左手邊就是廁所了！"
+
+  pricing:
+    - "我們是計時收費，平日每人每小時 80 元，假日 100 元喔！"
+    - "收費方式是每小時計費，詳細價格可以問櫃台夥伴！"
+
+  busy_fallback:
+    - "現在店裡像戰場一樣，我晚點再跟你聊！"
+    - "哇，現在真的超忙的！稍等一下好嗎？"
+    - "正在幫其他客人，馬上回來！"
+    - "店裡大爆滿！讓我先處理一下喔！"
+
+  sensitive_rejection:
+    - "這個話題我不太方便聊耶，我們來聊桌遊吧！"
+    - "嗯...我專精桌遊，其他話題可能要問別人了！"
+    - "身為桌遊店員，這個我不太懂，換個話題吧！"
+
+# ============================================
+# Supported Games with Aliases
+# ============================================
+supported_games:
+  - id: "carcassonne"
+    name: "Carcassonne"
+    display_name: "卡卡頌"
+    aliases:
+      - "卡卡送"
+      - "卡卡獸"
+      - "卡卡城"
+    has_local_rules: true
+    rule_file: "rules/carcassonne.md"
+    keywords:
+      - "米普"
+      - "板塊"
+      - "農夫"
+      - "騎士"
+      - "城堡"
+      - "道路"
+
+  - id: "ticket_to_ride"
+    name: "Ticket to Ride"
+    display_name: "鐵道任務"
+    aliases:
+      - "火車遊戲"
+      - "鐵路遊戲"
+    has_local_rules: false
+    keywords:
+      - "火車"
+      - "路線"
+      - "車票"
+
+  - id: "splendor"
+    name: "Splendor"
+    display_name: "璀璨寶石"
+    aliases:
+      - "寶石"
+      - "鑽石遊戲"
+    has_local_rules: false
+    keywords:
+      - "寶石"
+      - "貴族"
+      - "發展卡"
