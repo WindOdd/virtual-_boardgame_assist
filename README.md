@@ -361,7 +361,7 @@ MIT License - 詳見 [LICENSE](LICENSE) 文件
 
 ## 📧 聯絡方式
 
-如有問題請聯絡: [your-email@example.com](mailto:your-email@example.com)
+如有問題請聯絡: [kdlmapcomtw@gmail.com](mailto:your-kdlmapcomtw@gmail.com)
 
 ---
 
