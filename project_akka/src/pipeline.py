@@ -1,0 +1,298 @@
+"""
+Project Akka - Pipeline Module
+Data-Driven Pipeline: FastPath -> Router -> Dispatch
+
+This module handles the main processing pipeline using configuration-based
+intent mapping instead of hardcoded Enums.
+"""
+
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+import random
+import yaml
+
+
+@dataclass
+class RouterResult:
+    """Result from the router stage."""
+    intent: str  # Raw string intent (no Enum)
+    confidence: float = 1.0
+    used_fastpath: bool = False
+
+
+@dataclass
+class PipelineResult:
+    """Final result from the pipeline."""
+    response: str
+    intent: Optional[str] = None
+    confidence: float = 0.0
+    source: str = "unknown"  # "fastpath", "local", "cloud", "content"
+
+
+class Pipeline:
+    """
+    Data-driven processing pipeline for user queries.
+    
+    Flow:
+    1. FastPath: Check for pattern matches (greetings, farewells)
+    2. Router: Use Local LLM to classify intent (returns raw string)
+    3. Dispatch: Check logic_intents first, then content_map
+       - Logic intents: RULES -> Cloud LLM, SENSITIVE -> reject, IRRELEVANT -> casual chat
+       - Content intents: Traverse store_info.yaml path and return response
+    """
+    
+    def __init__(self, config_dir: Optional[Path] = None):
+        """
+        Initialize the pipeline with configuration files.
+        
+        Args:
+            config_dir: Path to config directory (defaults to Project_Akka/config)
+        """
+        self.config_dir = config_dir or Path(__file__).parent.parent / "config"
+        
+        # Load configurations
+        self.store_info: Dict[str, Any] = {}
+        self.intent_map: Dict[str, Any] = {}
+        self.prompts_local: Dict[str, Any] = {}
+        
+        self._load_configs()
+    
+    def _load_configs(self) -> None:
+        """Load all required YAML configuration files."""
+        # Load store_info.yaml
+        store_info_path = self.config_dir / "store_info.yaml"
+        if store_info_path.exists():
+            with open(store_info_path, 'r', encoding='utf-8') as f:
+                self.store_info = yaml.safe_load(f) or {}
+        
+        # Load intent_map.yaml
+        intent_map_path = self.config_dir / "intent_map.yaml"
+        if intent_map_path.exists():
+            with open(intent_map_path, 'r', encoding='utf-8') as f:
+                self.intent_map = yaml.safe_load(f) or {}
+        
+        # Load prompts_local.yaml
+        prompts_local_path = self.config_dir / "prompts_local.yaml"
+        if prompts_local_path.exists():
+            with open(prompts_local_path, 'r', encoding='utf-8') as f:
+                self.prompts_local = yaml.safe_load(f) or {}
+    
+    def reload_configs(self) -> None:
+        """Hot-reload configuration files."""
+        self._load_configs()
+    
+    async def process(self, user_input: str, llm_service=None) -> PipelineResult:
+        """
+        Process a user query through the pipeline.
+        
+        Args:
+            user_input: The user's query text
+            llm_service: Optional LLM service for routing and generation
+            
+        Returns:
+            PipelineResult with response and metadata
+        """
+        # 1. Try FastPath
+        fastpath_response = self._try_fastpath(user_input)
+        if fastpath_response:
+            return PipelineResult(
+                response=fastpath_response,
+                intent="GREETING",
+                confidence=1.0,
+                source="fastpath"
+            )
+        
+        # 2. Route to get intent (requires LLM service)
+        if llm_service is None:
+            return PipelineResult(
+                response="抱歉，系統正在維護中，請稍後再試。",
+                source="error"
+            )
+        
+        router_result = await self._route(user_input, llm_service)
+        
+        # 3. Dispatch based on intent
+        response, source = await self._dispatch(
+            router_result.intent, 
+            user_input, 
+            llm_service
+        )
+        
+        return PipelineResult(
+            response=response,
+            intent=router_result.intent,
+            confidence=router_result.confidence,
+            source=source
+        )
+    
+    def _try_fastpath(self, user_input: str) -> Optional[str]:
+        """
+        Attempt quick pattern matching for common queries.
+        
+        Returns response string if matched, None otherwise.
+        """
+        user_input_lower = user_input.strip().lower()
+        
+        # Check greetings from store_info
+        greetings_trigger = ["你好", "哈囉", "嗨", "早安", "午安", "晚安", "hello", "hi"]
+        for trigger in greetings_trigger:
+            if trigger in user_input_lower:
+                greetings = self.store_info.get("common_chat", {}).get("greetings", [])
+                if greetings:
+                    return random.choice(greetings)
+        
+        return None
+    
+    async def _route(self, user_input: str, llm_service) -> RouterResult:
+        """
+        Use Local LLM to classify the user's intent.
+        
+        Returns RouterResult with raw string intent.
+        """
+        router_config = self.prompts_local.get("router", {})
+        system_prompt = router_config.get("system_prompt", "")
+        
+        # Call LLM for intent classification
+        try:
+            response = await llm_service.generate_json(
+                prompt=user_input,
+                system_prompt=system_prompt
+            )
+            intent = response.get("intent", "IRRELEVANT")
+            confidence = response.get("confidence", 0.8)
+            return RouterResult(intent=intent, confidence=confidence)
+        except Exception:
+            # Fallback to IRRELEVANT on error
+            return RouterResult(intent="IRRELEVANT", confidence=0.5)
+    
+    async def _dispatch(
+        self, 
+        intent: str, 
+        user_input: str, 
+        llm_service
+    ) -> tuple[str, str]:
+        """
+        Dispatch to appropriate handler based on intent.
+        
+        Checks logic_intents first, then content_map.
+        
+        Returns:
+            Tuple of (response_text, source_type)
+        """
+        logic_intents = self.intent_map.get("logic_intents", {})
+        content_map = self.intent_map.get("content_map", {})
+        
+        # --- Check Logic Intents First ---
+        if intent in logic_intents:
+            logic_config = logic_intents[intent]
+            handler = logic_config.get("handler", "")
+            
+            if handler == "reject":
+                # SENSITIVE: Return static rejection message
+                return (logic_config.get("response", "抱歉，我無法回答這個問題。"), "reject")
+            
+            elif handler == "local_llm":
+                # IRRELEVANT: Use casual_chat task
+                task_name = logic_config.get("task", "casual_chat")
+                task_config = self.prompts_local.get(task_name, {})
+                system_prompt = task_config.get("system_prompt", "")
+                
+                response = await llm_service.generate(
+                    prompt=user_input,
+                    system_prompt=system_prompt
+                )
+                return (response.content, "local")
+            
+            elif handler == "cloud_llm":
+                # RULES: Route to Cloud LLM with RAG context
+                # This requires cloud_llm_service - for now return placeholder
+                return ("這個規則問題需要連接雲端服務，請稍後再試。", "cloud")
+        
+        # --- Check Content Map ---
+        if intent in content_map:
+            content_config = content_map[intent]
+            path = content_config.get("path", "")
+            fallback = content_config.get("fallback", "抱歉，我找不到這個資訊。")
+            template = content_config.get("template")
+            
+            # Traverse the path in store_info
+            value = self._traverse_path(self.store_info, path)
+            
+            if value is None:
+                return (fallback, "content")
+            
+            # Handle different value types
+            if isinstance(value, list):
+                return (random.choice(value), "content")
+            elif isinstance(value, dict):
+                if template:
+                    try:
+                        response = self._format_template(template, value)
+                        return (response, "content")
+                    except KeyError:
+                        return (fallback, "content")
+                else:
+                    # Return first string value found
+                    for v in value.values():
+                        if isinstance(v, str):
+                            return (v, "content")
+                    return (fallback, "content")
+            elif isinstance(value, str):
+                return (value, "content")
+            else:
+                return (str(value), "content")
+        
+        # --- Fallback ---
+        return ("抱歉，我不太確定你的問題，可以再說一次嗎？", "fallback")
+    
+    def _traverse_path(self, data: Dict[str, Any], path: str) -> Any:
+        """
+        Traverse a dot-separated path in a nested dictionary.
+        
+        Args:
+            data: The dictionary to traverse
+            path: Dot-separated path like "responses_pool.wifi.ssid"
+            
+        Returns:
+            The value at the path, or None if not found
+        """
+        if not path:
+            return None
+        
+        keys = path.split(".")
+        current = data
+        
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return None
+        
+        return current
+    
+    def _format_template(self, template: str, data: Dict[str, Any]) -> str:
+        """
+        Format a template string with nested dictionary values.
+        
+        Supports nested keys like {weekday.per_person_per_hour}.
+        """
+        import re
+        
+        def replace_match(match):
+            key_path = match.group(1)
+            value = self._traverse_path(data, key_path)
+            if value is None:
+                # Try direct key access for non-nested keys
+                value = data.get(key_path, "")
+            return str(value) if value is not None else ""
+        
+        # Match {key} or {key.subkey} patterns
+        result = re.sub(r'\{([^}]+)\}', replace_match, template)
+        return result
+
+
+# Factory function for convenience
+def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
+    """Create a new Pipeline instance."""
+    return Pipeline(config_dir=config_dir)

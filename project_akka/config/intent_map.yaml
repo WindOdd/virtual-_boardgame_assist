@@ -1,0 +1,29 @@
+# config/intent_map.yaml
+# 用途：定義 Intent 字串如何對應到 store_info.yaml 的資料路徑
+
+# A. 邏輯意圖 (Logic Intents)
+# 這些意圖觸發程式碼中的特殊函式 (RAG, Chat, Filter)
+logic_intents:
+  - "SENSITIVE"
+  - "RULES"
+  - "IRRELEVANT"
+
+# B. 內容意圖 (Content Intents)
+# 這些意圖直接查表回傳 store_info.yaml 的內容
+# 格式: INTENT_NAME: [path_node_1, path_node_2, ...]
+content_map:
+  # 1. 簡單對應
+  STORE_WIFI:     ["wifi"]
+  STORE_TOILET:   ["toilet"]
+  STORE_PRICING:  ["pricing"]
+
+  # 2. 基本資訊 (Basic Info)
+  STORE_INTRO:    ["basic_info", "general"]
+  STORE_LOCATION: ["basic_info", "specific", "address"]
+  STORE_PHONE:    ["basic_info", "specific", "phone"]
+  STORE_HOURS:    ["basic_info", "specific", "hours"]
+
+  # 3. 服務資訊 (Service)
+  STORE_SERVICE:  ["service", "general"]
+  STORE_FOOD:     ["service", "specific", "food"]
+  STORE_BOOKING:  ["service", "specific", "booking"]

@@ -1,0 +1,34 @@
+# Games Registry
+# Central registry for all supported board games
+
+games:
+  - id: "Carcassonne"
+    display_name: "卡卡頌"
+    rule_path: "data/rules/Carcassonne.md"
+    keywords_path: "data/stt_keywords/Carcassonne.txt"
+    enable_stt_injection: true
+    metadata:
+      players: "2-5"
+      playtime: "30-45 minutes"
+      difficulty: "easy"
+      category: "tile-placement"
+      
+  - id: "Splendor"
+    display_name: "璀璨寶石"
+    rule_path: "data/rules/Splendor.md"
+    keywords_path: "data/stt_keywords/Splendor.txt"
+    enable_stt_injection: true
+    metadata:
+      players: "2-4"
+      playtime: "30 minutes"
+      difficulty: "easy"
+      category: "engine-building"
+
+# Schema description (for documentation)
+# Each game entry should have:
+#   - id: Unique identifier (English)
+#   - display_name: Display name (localized)
+#   - rule_path: Path to markdown rule file
+#   - keywords_path: Path to STT keywords file
+#   - enable_stt_injection: Whether to inject keywords for STT enhancement
+#   - metadata: Optional additional info (players, playtime, difficulty, category)

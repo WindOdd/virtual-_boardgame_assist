@@ -1,38 +1,23 @@
-# Project Akka v9.5 - System Configuration
-# Target: NVIDIA Jetson Orin Nano Super (8GB VRAM)
+# System Configuration for Project Akka
+# Targeting NVIDIA Jetson Orin Nano
 
 server:
   host: "0.0.0.0"
   port: 8000
-  concurrency: 8  # Application layer threads
+  concurrency: 8
 
-# Fast Path Configuration (Stage II)
-fast_path:
-  enabled: true
-  max_input_length: 12  # Skip if input > 12 chars
-  game_keyword_bypass: true  # Skip if contains game keywords
-
-# Local LLM Settings (Stage III - GPU)
-llm_settings:
-  local_model:
+model:
+  local:
     name: "qwen3:4b-instruct"
-    num_ctx: 1024  # Memory hard limit
-    num_predict: 120  # Generation limit (~50-60 Chinese chars)
-    temperature: 0.1
-    ollama_base_url: "http://localhost:11434"
+    provider: "ollama"
+    description: "Local LLM running on Jetson Orin Nano"
+  cloud:
+    name: "gemini-2.5-flash"
+    provider: "google"
+    description: "Cloud LLM for complex reasoning tasks"
 
-# Load Shedding Configuration (Stage IV)
-load_shedding:
-  enabled: true
-  max_concurrent_requests: 4  # Threshold for busy fallback
-
-# Cloud Settings
-cloud:
-  gemini:
-    model: "gemini-2.5-flash"
-    timeout_seconds: 30
-
-# Logging
-logging:
-  level: "INFO"
-  format: "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+# Hardware optimization hints for Jetson Orin Nano
+hardware:
+  target_device: "jetson_orin_nano"
+  gpu_memory_fraction: 0.8
+  enable_tensor_cores: true

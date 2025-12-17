@@ -1,0 +1,5 @@
+# Project Akka Logs
+
+This directory contains runtime logs for Project Akka.
+
+Logs are excluded from version control via .gitignore.

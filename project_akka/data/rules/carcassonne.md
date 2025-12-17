@@ -1,101 +1,98 @@
-# 卡卡頌地圖擴充：完整規則與 FAQ (Carcassonne Maps & FAQ)
+# Carcassonne Rules Database (Base Game)
 
-本指南整合了官方規則書與社群針對地圖擴充的規則釐清，包含通用規則、台灣地圖特殊規則以及常見問答。
+## 1. Global Configuration
+### 1.1 Components & Setup
+* **Tiles**:
+    * Total: 72 Land tiles.
+    * **Start Tile**: The tile with a dark back (depicts city, road, and field). Placed face-up in the center first.
+* **Meeples (Followers)**:
+    * Supply: 8 per player.
+    * **Score Track**: 1 meeple is placed on the scoreboard to track points.
+    * **Available**: 7 meeples remain in the player's personal supply for gameplay.
 
-## 第一部分：地圖通用規則
+## 2. Turn Structure
+Turns proceed clockwise. A player's turn consists of **3 distinct phases** that must be performed in sequential order:
 
-適用於所有卡卡頌地圖擴充（如：台灣、德國、法國、美國等）。
+### Phase A: Place a Tile (Mandatory)
+* **Action**: Draw 1 tile from the stack.
+* **Logic**: Place it adjacent to at least one existing tile on the board.
+* **Constraint (Matching)**: All touching edges must match the terrain of adjacent tiles (Road to Road, City to City, Field to Field).
+* **Exception**: If a tile simply cannot be placed legally anywhere, discard it and draw a new one (Repeat until a playable tile is drawn or stack is empty).
 
-### 1. 遊戲設置 (Setup)
-* **版圖建議**：建議搭配《基本版》、《主教堂與餐館》及《小豬與建築師》的版圖，約 125-130 片。通常只使用版圖，不使用擴充的額外規則（如小豬、建築師手下），除非玩家自行約定。
-* **手下數量**：每位玩家建議使用 **9 名手下**（而非標準的 7 名），另放 1 名在計分板上。
-* **起始配置**：
-    * 地圖上有數個**「起始格」**（紅色邊框）。
-    * 必須選用至少 **2 個起始格**開始遊戲。
-    * 將起始版圖（深色背面）或隨機抽取的版圖放置在這些起始格上。
+### Phase B: Place a Meeple (Optional)
+* **Action**: The player *may* place **1 meeple** from their supply onto the **tile just placed**.
+* **Constraint 1 (Location)**: Must choose a specific feature on that tile:
+    * **Road** (becomes a Thief).
+    * **City** (becomes a Knight).
+    * **Monastery** (becomes a Monk).
+    * **Field** (becomes a Farmer) -> *Farmer is laid flat and stays until game end.*
+* **Constraint 2 (Occupancy)**: A meeple **CANNOT** be placed on a feature that is already occupied by any meeple (including the player's own).
+    * *Check*: Trace the entire connected road, city, or field. If *any* meeple is found, placement is illegal.
 
-### 2. 遊戲流程 (Gameplay)
-基本流程與卡卡頌相同，但在**「擺放版圖」**上有地圖專屬的限制：
+### Phase C: Score & Return (Conditional)
+* **Check**: Did the placed tile complete any Road, City, or Monastery? (Fields are never scored mid-game).
+* **Execution**:
+    1.  Calculate points for the completed feature.
+    2.  Update score on the track.
+    3.  **Return Meeple**: The meeple on the completed feature is returned to the player's supply immediately.
+    * *Note*: Farmers (on fields) are **never** returned during the game.
 
-#### A. 擺放限制
-* **格子限制**：版圖**只能**擺放在地圖預先印好的方格上。
-* **相鄰原則**：
-    * 遊戲開始時，第一片版圖必須與「起始格上的版圖」相鄰。
-    * 之後擺放的版圖必須與「地圖上已存在的版圖」相鄰。
-* **大城 (Large Cities) 規則**：
-    * 地圖上印有大城（如台北、柏林等）的區域**不可被版圖覆蓋**。
-    * **解鎖周邊**：遊戲開始時，**不能**直接將版圖拼放在大城旁。必須等待從起始格延伸出的版圖**連接到大城**後，該大城才算被「發現」，此時所有玩家才能在該大城周圍拼放版圖。
-* **小鎮 (Small Towns)**：
-    * 印有小鎮（小屋圖案）的格子視為**一般空格**，可正常擺放版圖。
+## 3. Scoring Mechanics
 
-#### B. 邊界與特殊地形
-* **地圖邊界 (Map Borders)**：
-    * **有圖案的邊界**：若邊界繪有城堡或道路，擺放的版圖必須與其吻合（路接路、城接城）。
-    * **一般邊界（開放性）**：若邊界外側是雲或海洋（無預繪圖案），版圖擺放不受圖案限制。
-    * **自動封閉**：任何通往「一般邊界」的道路、城堡或草原，在邊界處視為**已封閉/已完成**。
-* **渡輪路線 (Ferries)**：
-    * 視為**道路的延伸**。
-    * 當版圖上的道路連接到渡輪路線的一端時，所有玩家皆可在**渡輪路線的另一端**拼放版圖，繼續延伸該道路。
+### 3.1 Roads
+* **Completion**: Both ends terminate at a village, city, monastery, or loop onto itself.
+* **Scoring**: **1 point** per tile in the road.
+* **End Game**: **1 point** per tile.
 
-### 3. 計分規則 (Scoring)
-* **盾牌徽章**：地圖上（大城旁或島嶼上）或版圖上的盾牌徽章，每個讓該城堡或道路額外獲得 **2 分**。
-* **城堡計分**：
-    * 若城堡結構包含了地圖上的「大城」，該大城視同城堡的一部分（計算版圖數與盾牌）。
-    * **邊界城堡**：若城堡接觸到地圖邊緣（一般邊界），該方向視為牆壁已封閉，可進行完成計分。
-* **道路計分**：
-    * **渡輪計分**：渡輪路徑本身算作 **1 片版圖（1分）**。整條路徑需在兩端道路都封閉/完成時才計分。
-* **修道院計分**：
-    * 若修道院周圍的九宮格超出地圖邊界，超出部分**無視**（不需要擺放版圖）。只要地圖範圍內的格子都填滿，修道院即視為完成（9分）。
+### 3.2 Cities
+* **Completion**: The city walls are completely closed with no gaps.
+* **Scoring (During Game)**:
+    * **2 points** per tile.
+    * **+2 points** per Pennant (Shield icon) inside the city.
+    * *Exception*: A city consisting of only 2 tiles is worth **4 points** (Standard Rules).
+* **Scoring (End Game)**:
+    * **1 point** per tile. (Half value).
+    * **+1 point** per Pennant. (Half value).
 
-### 4. 變體規則 (小鎮)
-玩家可選擇性採用以下規則增加變化：
-* **變體 A**：在小鎮格放版圖可**額外抽一片版圖**並立即擺放（每回合限一次）。
-* **變體 B**：在小鎮格放版圖需**扣除 2 分**。
-* **變體 C**：道路計分時，每有一個相鄰（垂直/水平）的「未覆蓋小鎮格」，額外獲得 **2 分**。
+### 3.3 Monasteries
+* **Completion**: The monastery tile is surrounded by 8 other tiles (3x3 grid filled).
+* **Scoring**: **9 points** (1 for monastery + 8 neighbors).
+* **End Game**: **1 point** for the monastery + **1 point** for each existing neighbor.
 
----
+### 3.4 Fields / Farmers (Game End Only)
+* **Completion**: Never completed during the game. Scored **ONLY** at Game End.
+* **Definition**: A field is a continuous green area bounded by roads, cities, or the edge of the map.
+* **Scoring Logic**:
+    1.  Identify a specific connected Field.
+    2.  Identify all **Completed Cities** that touch this Field.
+    3.  Score **3 points** for each unique Completed City.
+* **Constraint**: Uncompleted cities provide 0 points to farmers.
+* **Multiple Fields**: A single city can border multiple separate fields. If a player has farmers in different fields touching the same city, they are scored separately (logic varies by edition, but this is the standard "International" rule).
 
-## 第二部分：台灣地圖特殊規則
-本規則需搭配**《地圖圓片》**（Map Chips）擴充配件進行。
+## 4. Conflict & Majority Rules (Sharing Features)
+* **Scenario**: Two separate features (each with a meeple) are connected by a later tile placement.
+* **Result**: The feature is now shared.
+* **Scoring Logic**:
+    * Count total meeples for each player on the completed feature.
+    * **Majority**: The player with the **most** meeples takes **Full Points**.
+    * **Tie**: All tied players take **Full Points**.
+    * **Loser**: Players with fewer meeples get **0 points**.
 
-### 1. 額外設置
-* 使用 **30 枚地圖圓片**（紫、藍、橘色各 10 片）。
-* 使用 **雪山 (Mount Snow)** 與 **玉山 (Mount Jade)** 作為起始格。
-* **圓片擺放**：將圓片面朝下洗勻，平均擺放在地圖格子中（每格1枚）。
-    * *不可擺放處*：大城、小鎮、島嶼格。
-    * *間距規則*：圓片的**上下左右**不可有其他圓片（斜角可）。
-    * *邊界規則*：圓片的**上下左右**不可與起始格或大城的邊界相鄰。
+## 5. End Game Condition
+* **Trigger**: The last tile is placed (Phase A, B, and C are resolved).
+* **Final Scoring Steps**:
+    1.  Score all **incomplete** Roads, Cities, and Monasteries (using "End Game" values).
+    2.  Score all **Fields** (Farmers).
+* **Winner**: Highest total score.
 
-### 2. 特殊機制
-
-#### A. 收集圓片 (Collecting Chips)
-當你在有圓片的格子上擺放版圖時：
-1.  **拿取**：將圓片收回。
-2.  **得分**：翻開圓片，立即獲得上面標示的 **1 分或 2 分**。
-3.  **保留**：將圓片面朝上放在自己面前（供升級用）。
-
-#### B. 島嶼規則 (Islands)
-* **解鎖島嶼**：你**不能**直接在島嶼格上放版圖。必須先由陸地端的道路連接到渡輪，**通過渡輪路線**連接到島嶼後，才能在島嶼格上擺放版圖。
-* **盾牌獎勵**：在有盾牌的島嶼格放版圖，每個盾牌立即獲得 **2 分**。
-
-#### C. 手下升級 (Upgrading a Meeple)
-* **條件**：收集到總值**正好 4 分**的圓片（如 4 張 1 分、或 2 張 2 分）。
-* **執行**：支付 4 分圓片，選一枚墊在自己地圖上的一名手下下方（其餘圓片移出遊戲）。
-* **效果**：該手下在計算優勢（Majority）時，視為 **2 名手下**。
-* **回收**：手下收回時，墊在下方的圓片移出遊戲，手下恢復正常。
-
----
-
-## 第三部分：FAQ 與規則釐清
-*整理自 Carcassonne Central 與規則書細節*
-
-1.  **Q: 如果地圖上的方格沒有被「起始格」或「已放置的版圖」連接到，我可以放版圖嗎？**
-    * **A:** 不行。地圖擴充嚴格遵守「相鄰擺放」原則，不能在孤立區域擺放。
-2.  **Q: 大城（如台北）算是一個完成的城堡嗎？**
-    * **A:** 大城本身視為「城堡的一部分」，其上的盾牌與面積會併入玩家連接的城堡計算，但不能單獨計分。
-3.  **Q: 關於「邊界自動封閉」的定義是什麼？**
-    * **A:** 當道路、城堡或草原接觸到地圖的一般邊界（外圍是雲或海），該邊界視為一堵牆或盡頭，該結構在此方向視為已封閉。
-4.  **Q: 修道院在邊界旁，只需要 6 片版圖就完成了，這樣算幾分？**
-    * **A:** 算 **9 分**。只要邊界內的部分填滿，修道院即視為完成，超出邊界的部分忽略不計。
-5.  **Q: 我可以用收集到的圓片升級「豬」或「建築師」嗎？**
-    * **A:** 規則書明確指出是升級「手下」(Meeple)，且升級後視為「2 名手下」，故通常僅適用於標準手下。
+## 6. FAQ & Edge Cases (Anti-Hallucination)
+1.  **Q: Can I place a meeple if I don't have any in my supply?**
+    * **A: NO.** You cannot move a meeple already on the board. You must use one from your supply.
+2.  **Q: Can I place a meeple on a feature if it connects to an occupied one?**
+    * **A: NO.** If the road/city/field you are extending already has a meeple anywhere on it, you cannot place a new one. You must place on an isolated feature and connect them later.
+3.  **Q: Do empty fields score points?**
+    * **A: NO.** Only fields with Farmers score points.
+4.  **Q: Does a farmer score for an incomplete city?**
+    * **A: NO.** Only completed cities count for farmers.
+5.  **Q: Can I return a Farmer to my hand?**
+    * **A: NO.** Farmers remain on the board until the end of the game.
