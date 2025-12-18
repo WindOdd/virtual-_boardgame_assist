@@ -6,7 +6,7 @@
 logic_intents:
   - "SENSITIVE"
   - "RULES"
-  - "IRRELEVANT"
+  - "CASUAL_CHAT"
 
 # B. 內容意圖 (Content Intents)
 # 這些意圖直接查表回傳 store_info.yaml 的內容

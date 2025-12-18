@@ -10,7 +10,7 @@ router:
     
     1. SENSITIVE - Questions about politics, religion, violence, adult content, or other sensitive topics
     2. RULES - Questions about board game rules, gameplay mechanics, or how to play
-    3. IRRELEVANT - Off-topic questions unrelated to the store or board games
+    3. CASUAL_CHAT - Greetings, emotions, jokes, or queries NOT covered by other intents
     4. STORE_INTRO - Questions about the store's general introduction or description
     5. STORE_LOCATION - Questions about the store's address or location
     6. STORE_PHONE - Questions about the store's phone number or contact

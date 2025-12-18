@@ -5,6 +5,11 @@ server:
   host: "0.0.0.0"
   port: 8000
   concurrency: 8
+# [New] 新增 UDP 服務發現設定
+udp_service:
+  port: 37020
+  magic_string: "DISCOVER_AKKA_SERVER"
+  response_keys: ["ip", "port"]
 
 model:
   local:
@@ -21,3 +26,8 @@ hardware:
   target_device: "jetson_orin_nano"
   gpu_memory_fraction: 0.8
   enable_tensor_cores: true
+# [New] 新增 logging 設定
+logging:
+  level: "INFO"
+  save_history: true
+  log_dir: "logs/"

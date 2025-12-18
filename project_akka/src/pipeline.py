@@ -38,7 +38,7 @@ class Pipeline:
     1. FastPath: Check for pattern matches (greetings, farewells)
     2. Router: Use Local LLM to classify intent (returns raw string)
     3. Dispatch: Check logic_intents first, then content_map
-       - Logic intents: RULES -> Cloud LLM, SENSITIVE -> reject, IRRELEVANT -> casual chat
+       - Logic intents: RULES -> Cloud LLM, SENSITIVE -> reject, CASUAL_CHAT -> casual chat
        - Content intents: Traverse store_info.yaml path and return response
     """
     
@@ -49,14 +49,15 @@ class Pipeline:
         Args:
             config_dir: Path to config directory (defaults to Project_Akka/config)
         """
-        self.config_dir = config_dir or Path(__file__).parent.parent / "config"
+        #self.config_dir = config_dir or Path(__file__).parent.parent / "config"
         
         # Load configurations
-        self.store_info: Dict[str, Any] = {}
-        self.intent_map: Dict[str, Any] = {}
-        self.prompts_local: Dict[str, Any] = {}
-        
-        self._load_configs()
+        # self.store_info: Dict[str, Any] = {}
+        # self.intent_map: Dict[str, Any] = {}
+        # self.prompts_local: Dict[str, Any] = {}
+        self.store_data = ConfigLoader("config/store_info.yaml").load()['responses_pool']
+        self.intent_map = ConfigLoader("config/intent_map.yaml").load()
+        self.local_prompts = PromptManager("config/prompts_local.yaml")
     
     def _load_configs(self) -> None:
         """Load all required YAML configuration files."""
@@ -159,12 +160,12 @@ class Pipeline:
                 prompt=user_input,
                 system_prompt=system_prompt
             )
-            intent = response.get("intent", "IRRELEVANT")
+            intent = response.get("intent", "CASUAL_CHAT")
             confidence = response.get("confidence", 0.8)
             return RouterResult(intent=intent, confidence=confidence)
         except Exception:
-            # Fallback to IRRELEVANT on error
-            return RouterResult(intent="IRRELEVANT", confidence=0.5)
+            # Fallback to CASUAL_CHAT on error
+            return RouterResult(intent="CASUAL_CHAT", confidence=0.5)
     
     async def _dispatch(
         self, 
@@ -193,7 +194,7 @@ class Pipeline:
                 return (logic_config.get("response", "抱歉，我無法回答這個問題。"), "reject")
             
             elif handler == "local_llm":
-                # IRRELEVANT: Use casual_chat task
+                # CASUAL_CHAT: Use casual_chat task
                 task_name = logic_config.get("task", "casual_chat")
                 task_config = self.prompts_local.get(task_name, {})
                 system_prompt = task_config.get("system_prompt", "")
