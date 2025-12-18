@@ -12,6 +12,8 @@ games:
       playtime: "30-45 minutes"
       difficulty: "easy"
       category: "tile-placement"
+      enable_stt_injection: true
+      allowlist_keywords: []
       
   - id: "Splendor"
     display_name: "璀璨寶石"
@@ -23,6 +25,8 @@ games:
       playtime: "30 minutes"
       difficulty: "easy"
       category: "engine-building"
+      enable_stt_injection: true
+      allowlist_keywords: []
 
 # Schema description (for documentation)
 # Each game entry should have:
