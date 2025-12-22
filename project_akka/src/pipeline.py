@@ -11,8 +11,9 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import random
 import yaml
-
-
+from boardgame_utils import ConfigLoader, PromptManager
+import os
+import asyncio  
 @dataclass
 class RouterResult:
     """Result from the router stage."""
@@ -49,35 +50,29 @@ class Pipeline:
         Args:
             config_dir: Path to config directory (defaults to Project_Akka/config)
         """
-        #self.config_dir = config_dir or Path(__file__).parent.parent / "config"
-        
+        self.config_dir = config_dir or Path(__file__).parent.parent / "config"
+        #print(self.config_dir)
         # Load configurations
-        # self.store_info: Dict[str, Any] = {}
-        # self.intent_map: Dict[str, Any] = {}
-        # self.prompts_local: Dict[str, Any] = {}
-        self.store_data = ConfigLoader("config/store_info.yaml").load()['responses_pool']
-        self.intent_map = ConfigLoader("config/intent_map.yaml").load()
-        self.local_prompts = PromptManager("config/prompts_local.yaml")
+        self.store_info = None
+        self.intent_map = None
+        self.prompts_local = None
+        self._load_configs()
+        #self.store_data = ConfigLoader(f"{self.config_dir}/store_info.yaml").load()['responses_pool']
+        #self.intent_map = ConfigLoader(f"{self.config_dir}/intent_map.yaml").load()
+        #self.local_prompts = PromptManager(f"{self.config_dir}/prompts_local.yaml")
     
     def _load_configs(self) -> None:
         """Load all required YAML configuration files."""
         # Load store_info.yaml
         store_info_path = self.config_dir / "store_info.yaml"
-        if store_info_path.exists():
-            with open(store_info_path, 'r', encoding='utf-8') as f:
-                self.store_info = yaml.safe_load(f) or {}
-        
+        self.store_info = ConfigLoader(store_info_path).load()
         # Load intent_map.yaml
         intent_map_path = self.config_dir / "intent_map.yaml"
-        if intent_map_path.exists():
-            with open(intent_map_path, 'r', encoding='utf-8') as f:
-                self.intent_map = yaml.safe_load(f) or {}
-        
+        self.intent_map = ConfigLoader(intent_map_path).load()
+        #print(self.intent_map)
         # Load prompts_local.yaml
         prompts_local_path = self.config_dir / "prompts_local.yaml"
-        if prompts_local_path.exists():
-            with open(prompts_local_path, 'r', encoding='utf-8') as f:
-                self.prompts_local = yaml.safe_load(f) or {}
+        self.prompts_local = PromptManager(prompts_local_path) 
     
     def reload_configs(self) -> None:
         """Hot-reload configuration files."""
@@ -134,12 +129,13 @@ class Pipeline:
         Returns response string if matched, None otherwise.
         """
         user_input_lower = user_input.strip().lower()
-        
         # Check greetings from store_info
-        greetings_trigger = ["你好", "哈囉", "嗨", "早安", "午安", "晚安", "hello", "hi"]
+        #greetings_trigger = ["你好", "哈囉", "嗨", "早安", "午安", "晚安", "hello", "hi"]
+        greetings_trigger = self.store_info.get("common_chat", {}).get("greetings", {}).get("keywords", [])
+        print(greetings_trigger)
         for trigger in greetings_trigger:
             if trigger in user_input_lower:
-                greetings = self.store_info.get("common_chat", {}).get("greetings", [])
+                greetings = self.store_info.get("common_chat", {}).get("greetings", {}).get("responses", [])
                 if greetings:
                     return random.choice(greetings)
         
@@ -151,9 +147,11 @@ class Pipeline:
         
         Returns RouterResult with raw string intent.
         """
+        print(user_input)
         router_config = self.prompts_local.get("router", {})
+        print(router_config)
         system_prompt = router_config.get("system_prompt", "")
-        
+        print(system_prompt)
         # Call LLM for intent classification
         try:
             response = await llm_service.generate_json(
@@ -296,4 +294,9 @@ class Pipeline:
 # Factory function for convenience
 def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
     """Create a new Pipeline instance."""
-    return Pipeline(config_dir=config_dir)
+    test=Pipeline(config_dir=config_dir)
+    #print(test.store_info)
+    anser=asyncio.run(test.process("店裡有賣什麼"))
+    print(anser)
+if __name__ == "__main__":
+    create_pipeline()

@@ -27,9 +27,9 @@ async def health_check():
         "version": "0.1.0"
     }
 
-＠app.post("/chat")
+@app.post("/chat")
 async def chat():
-print("Chat endpoint hit")
+    print("Chat endpoint hit")
 # TODO: Add routes for:
 # - /chat (main conversation endpoint)
 # - /games (list available games)
