@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import random
 import yaml
-from boardgame_utils import ConfigLoader, PromptManager
-from data_manager import get_data_manager
+from .boardgame_utils import ConfigLoader, PromptManager
+from .data_manager import get_data_manager
 import os
 import asyncio 
 import logging
