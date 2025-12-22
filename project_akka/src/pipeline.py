@@ -11,10 +11,12 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import random
 import yaml
-from .boardgame_utils import ConfigLoader, PromptManager
-from .data_manager import get_data_manager
+from boardgame_utils import ConfigLoader, PromptManager
+from data_manager import get_data_manager
 import os
-import asyncio  
+import asyncio 
+import logging
+logger = logging.getLogger(__name__)
 @dataclass
 class RouterResult:
     """Result from the router stage."""
@@ -52,6 +54,7 @@ class Pipeline:
             config_dir: Path to config directory (defaults to Project_Akka/config)
         """
         self.config_dir = config_dir or Path(__file__).parent.parent / "config"
+        self.data_manager = get_data_manager()
         #print(self.config_dir)
         # Load configurations
         self._load_configs()
@@ -79,20 +82,13 @@ class Pipeline:
     async def process(self, user_input: str, llm_service=None) -> PipelineResult:
         """
         Process a user query through the pipeline.
-        
-        Args:
-            user_input: The user's query text
-            llm_service: Optional LLM service for routing and generation
-            
-        Returns:
-            PipelineResult with response and metadata
         """
-        # 1. Try FastPath
+        # 1. Try FastPath (Dynamic check from store_info)
         fastpath_response = self._try_fastpath(user_input)
         if fastpath_response:
             return PipelineResult(
                 response=fastpath_response,
-                intent="GREETING",
+                intent="GREETING",  # Or derive from category if needed
                 confidence=1.0,
                 source="fastpath"
             )
@@ -105,13 +101,15 @@ class Pipeline:
             )
         
         router_result = await self._route(user_input, llm_service)
-        # [MODIFIED] Stage IV: Safety Filter (Allowlist)
+        
+        # [Stage IV] Safety Filter (Allowlist Check)
         # If intent is SENSITIVE, check if keywords are in the allowlist.
-        # If matched, override intent to RULES.
+        # If matched, override intent to RULES to prevent false positives.
         if router_result.intent == "SENSITIVE":
             if self._check_allowlist(user_input):
                 logger.info(f"Safety Filter: Allowlist hit for '{user_input}'. Overriding SENSITIVE to RULES.")
                 router_result.intent = "RULES"
+        
         # 3. Dispatch based on intent
         response, source = await self._dispatch(
             router_result.intent, 
@@ -129,25 +127,30 @@ class Pipeline:
     def _try_fastpath(self, user_input: str) -> Optional[str]:
         """
         Attempt quick pattern matching for common queries.
-        
-        Returns response string if matched, None otherwise.
+        Dynamically checks ALL categories in 'common_chat' (e.g., greetings, identity).
         """
         user_input_lower = user_input.strip().lower()
-        # Check greetings from store_info
-        #greetings_trigger = ["你好", "哈囉", "嗨", "早安", "午安", "晚安", "hello", "hi"]
-        greetings_trigger = self.store_info.get("common_chat", {}).get("greetings", {}).get("keywords", [])
-        print(greetings_trigger)
-        for trigger in greetings_trigger:
-            if trigger in user_input_lower:
-                greetings = self.store_info.get("common_chat", {}).get("greetings", {}).get("responses", [])
-                if greetings:
-                    return random.choice(greetings)
+        
+        # [FIX] Generalized loop for all chat categories
+        common_chat = self.store_info.get("common_chat", {})
+        if not isinstance(common_chat, dict):
+            return None
+            
+        for category, data in common_chat.items():
+            keywords = data.get("keywords", [])
+            responses = data.get("responses", [])
+            
+            # Check for keyword matches
+            for trigger in keywords:
+                if trigger.lower() in user_input_lower:
+                    if responses:
+                        return random.choice(responses)
         
         return None
+    
     def _check_allowlist(self, user_input: str) -> bool:
         """
         Check if user input contains any keyword from the allowlist of enabled games.
-        Used to prevent false positives in safety filtering.
         """
         try:
             # List all registered games
@@ -162,17 +165,14 @@ class Pipeline:
             logger.error(f"Error checking allowlist: {e}")
             
         return False
+    
     async def _route(self, user_input: str, llm_service) -> RouterResult:
         """
         Use Local LLM to classify the user's intent.
-        
-        Returns RouterResult with raw string intent.
         """
-        print(user_input)
         router_config = self.prompts_local.get("router", {})
-        print(router_config)
         system_prompt = router_config.get("system_prompt", "")
-        print(system_prompt)
+        
         # Call LLM for intent classification
         try:
             response = await llm_service.generate_json(
@@ -194,11 +194,7 @@ class Pipeline:
     ) -> tuple[str, str]:
         """
         Dispatch to appropriate handler based on intent.
-        
         Checks logic_intents first, then content_map.
-        
-        Returns:
-            Tuple of (response_text, source_type)
         """
         logic_intents = self.intent_map.get("logic_intents", {})
         content_map = self.intent_map.get("content_map", {})
@@ -209,11 +205,9 @@ class Pipeline:
             handler = logic_config.get("handler", "")
             
             if handler == "reject":
-                # SENSITIVE: Return static rejection message
                 return (logic_config.get("response", "抱歉，我無法回答這個問題。"), "reject")
             
             elif handler == "local_llm":
-                # CASUAL_CHAT: Use casual_chat task
                 task_name = logic_config.get("task", "casual_chat")
                 task_config = self.prompts_local.get(task_name, {})
                 system_prompt = task_config.get("system_prompt", "")
@@ -225,8 +219,6 @@ class Pipeline:
                 return (response.content, "local")
             
             elif handler == "cloud_llm":
-                # RULES: Route to Cloud LLM with RAG context
-                # This requires cloud_llm_service - for now return placeholder
                 return ("這個規則問題需要連接雲端服務，請稍後再試。", "cloud")
         
         # --- Check Content Map ---
@@ -236,9 +228,13 @@ class Pipeline:
             fallback = content_config.get("fallback", "抱歉，我找不到這個資訊。")
             template = content_config.get("template")
             
-            # Traverse the path in store_info
+            # Traverse the path in store_info (Root)
             value = self._traverse_path(self.store_info, path)
             
+            # If not found, try responses_pool (Backward Compatibility)
+            if value is None:
+                value = self._traverse_path(self.store_data, path)
+
             if value is None:
                 return (fallback, "content")
             
@@ -253,7 +249,6 @@ class Pipeline:
                     except KeyError:
                         return (fallback, "content")
                 else:
-                    # Return first string value found
                     for v in value.values():
                         if isinstance(v, str):
                             return (v, "content")
@@ -269,15 +264,8 @@ class Pipeline:
     def _traverse_path(self, data: Dict[str, Any], path: str) -> Any:
         """
         Traverse a dot-separated path in a nested dictionary.
-        
-        Args:
-            data: The dictionary to traverse
-            path: Dot-separated path like "responses_pool.wifi.ssid"
-            
-        Returns:
-            The value at the path, or None if not found
         """
-        if not path:
+        if not path or not isinstance(data, dict):
             return None
         
         keys = path.split(".")
@@ -294,8 +282,6 @@ class Pipeline:
     def _format_template(self, template: str, data: Dict[str, Any]) -> str:
         """
         Format a template string with nested dictionary values.
-        
-        Supports nested keys like {weekday.per_person_per_hour}.
         """
         import re
         
@@ -303,11 +289,9 @@ class Pipeline:
             key_path = match.group(1)
             value = self._traverse_path(data, key_path)
             if value is None:
-                # Try direct key access for non-nested keys
                 value = data.get(key_path, "")
             return str(value) if value is not None else ""
         
-        # Match {key} or {key.subkey} patterns
         result = re.sub(r'\{([^}]+)\}', replace_match, template)
         return result
 
@@ -315,9 +299,8 @@ class Pipeline:
 # Factory function for convenience
 def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
     """Create a new Pipeline instance."""
-    test=Pipeline(config_dir=config_dir)
-    #print(test.store_info)
-    anser=asyncio.run(test.process("店裡有賣什麼"))
-    print(anser)
+    return Pipeline(config_dir=config_dir)
+
 if __name__ == "__main__":
-    create_pipeline()
+    try_it=create_pipeline()
+    print(asyncio.run(try_it.process("你是誰")))
