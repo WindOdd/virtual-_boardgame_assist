@@ -11,7 +11,8 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import random
 import yaml
-from boardgame_utils import ConfigLoader, PromptManager
+from .boardgame_utils import ConfigLoader, PromptManager
+from .data_manager import get_data_manager
 import os
 import asyncio  
 @dataclass
@@ -53,9 +54,6 @@ class Pipeline:
         self.config_dir = config_dir or Path(__file__).parent.parent / "config"
         #print(self.config_dir)
         # Load configurations
-        self.store_info = None
-        self.intent_map = None
-        self.prompts_local = None
         self._load_configs()
         #self.store_data = ConfigLoader(f"{self.config_dir}/store_info.yaml").load()['responses_pool']
         #self.intent_map = ConfigLoader(f"{self.config_dir}/intent_map.yaml").load()
@@ -107,7 +105,13 @@ class Pipeline:
             )
         
         router_result = await self._route(user_input, llm_service)
-        
+        # [MODIFIED] Stage IV: Safety Filter (Allowlist)
+        # If intent is SENSITIVE, check if keywords are in the allowlist.
+        # If matched, override intent to RULES.
+        if router_result.intent == "SENSITIVE":
+            if self._check_allowlist(user_input):
+                logger.info(f"Safety Filter: Allowlist hit for '{user_input}'. Overriding SENSITIVE to RULES.")
+                router_result.intent = "RULES"
         # 3. Dispatch based on intent
         response, source = await self._dispatch(
             router_result.intent, 
@@ -140,7 +144,24 @@ class Pipeline:
                     return random.choice(greetings)
         
         return None
-    
+    def _check_allowlist(self, user_input: str) -> bool:
+        """
+        Check if user input contains any keyword from the allowlist of enabled games.
+        Used to prevent false positives in safety filtering.
+        """
+        try:
+            # List all registered games
+            games = self.data_manager.list_games()
+            for game in games:
+                # Allowlist is defined in games_registry.yaml under metadata
+                allowlist = game.metadata.get("allowlist_keywords", [])
+                for keyword in allowlist:
+                    if keyword in user_input:
+                        return True
+        except Exception as e:
+            logger.error(f"Error checking allowlist: {e}")
+            
+        return False
     async def _route(self, user_input: str, llm_service) -> RouterResult:
         """
         Use Local LLM to classify the user's intent.
