@@ -303,4 +303,4 @@ def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
 
 if __name__ == "__main__":
     try_it=create_pipeline()
-    print(asyncio.run(try_it.process("你是誰")))
+    print(asyncio.run(try_it.process("wi-fi 密碼")))
