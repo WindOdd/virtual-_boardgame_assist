@@ -1,0 +1,33 @@
+# config/semantic_routes.yaml
+# 定義語意路由的標準錨點 (Anchors)
+# 用於 Semantic Router (e5-small) 建立向量索引
+
+# 1. 店務類 (Store Info)
+STORE_WIFI:
+  - "WIFI密碼"
+  - "無線網路"
+  - "網路連不上"
+  - "密碼多少"
+  - "有沒有wifi"
+  - "網路慢"
+
+STORE_TOILET:
+  - "廁所在哪"
+  - "洗手間"
+  - "化妝室"
+  - "我要尿尿"
+  - "哪裡可以上廁所"
+
+# 2. 閒聊與招呼 (Greetings & Chat)
+GREETING:
+  - "你好"
+  - "早安"
+  - "嗨"
+  - "Hello"
+  - "有人在嗎"
+
+IDENTITY:
+  - "你是誰"
+  - "名字"
+  - "介紹一下"
+  - "你叫什麼"

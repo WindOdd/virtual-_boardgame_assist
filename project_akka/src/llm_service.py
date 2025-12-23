@@ -7,10 +7,10 @@ This module provides unified interfaces for:
 2. Cloud LLM (Google Gemini gemini-2.5-flash)
 """
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
 import json
+import logging
+import ollama
+import asyncio  # <--- 1. 引入 asyncio
 
 
 @dataclass

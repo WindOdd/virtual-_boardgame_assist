@@ -21,6 +21,7 @@ router:
     11. STORE_WIFI - Questions about WiFi access or password
     12. STORE_TOILET - Questions about restroom or toilet location
     13. STORE_PRICING - Questions about prices, fees, or costs
+    14. UNKNOWN - Questions that make no sense or are completely irrelevant
 
     CONSTRAINTS:
     - You MUST output valid JSON only.

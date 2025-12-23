@@ -19,7 +19,7 @@ httpx>=0.25.0
 
 # Ollama
 ollama>=0.6.1
-
+fastembed>=0.3.3
 # Optional: Development tools
 # python-dotenv>=1.0.0
 # pytest>=7.4.0
