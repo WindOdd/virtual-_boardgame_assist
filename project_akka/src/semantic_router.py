@@ -30,7 +30,7 @@ class SemanticRouter:
         self.index = {}
         self.routes = routes_config
         self.model_name = model_config.get("name")
-        self.threshold = model_config.get("threshold", 0.82) # 預設門檻值
+        self.threshold = model_config.get("threshold", 0.88) # 預設門檻值
 
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             logger.warning("❌ sentence-transformers not installed. Semantic Router disabled.")
