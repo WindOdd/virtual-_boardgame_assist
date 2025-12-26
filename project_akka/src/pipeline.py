@@ -9,7 +9,10 @@ import random
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
-
+try:
+    from .llm import LLMServiceManager
+except ImportError:
+    from llm.manager import LLMServiceManager
 # Project modules
 try:
     from .boardgame_utils import ConfigLoader, PromptManager
@@ -39,7 +42,8 @@ class Pipeline:
     def __init__(self, config_dir: Optional[Path] = None):
         self.config_dir = config_dir or Path(__file__).parent.parent / "config"
         self.data_manager = get_data_manager()
-        
+        self.system_config = {}
+        self.semantic_routes = {}
         # 1. Load Configurations
         self._load_configs()
         
@@ -51,6 +55,9 @@ class Pipeline:
             model_config=embedding_config,
             routes_config=self.semantic_routes
         )
+        self.llm_manager = LLMServiceManager(self.system_config)
+        self.local_llm = self.llm_manager.get_local()
+        self.cloud_llm = self.llm_manager.get_cloud()
 
     def _load_configs(self) -> None:
         """Load all YAML configurations."""
@@ -58,7 +65,7 @@ class Pipeline:
             self.store_info = ConfigLoader(self.config_dir / "store_info.yaml").load()
             self.intent_map = ConfigLoader(self.config_dir / "intent_map.yaml").load()
             self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml")
-            
+            self.system_config = ConfigLoader(self.config_dir / "system_config.yaml").load()
             # Optional Configs
             try:
                 self.semantic_routes = ConfigLoader(self.config_dir / "semantic_routes.yaml").load()
@@ -137,8 +144,12 @@ class Pipeline:
     async def _route_with_llm(self, user_input: str, llm_service) -> RouterResult:
         router_config = self.local_prompts.get("router", {})
         system_prompt = router_config.get("system_prompt", "")
+        if not self.local_llm:
+            return RouterResult(intent="UNKNOWN", confidence=0.0, source="error")
+        router_config = self.local_prompts.get("router", {})
+        system_prompt = router_config.get("system_prompt", "")
         try:
-            response = await llm_service.generate_json(user_input, system_prompt)
+            response = await self.local_llm.generate_json(user_input, system_prompt)
             intent = response.get("intent", "CASUAL_CHAT")
             confidence = response.get("confidence", 0.0)
             return RouterResult(intent=intent, confidence=confidence, source="llm")

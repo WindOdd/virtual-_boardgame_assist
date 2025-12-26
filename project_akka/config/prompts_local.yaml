@@ -28,7 +28,9 @@ router:
     - You MUST respond with exactly one intent.
     - Do NOT include any explanation or additional text.
     - If uncertain, choose the most likely intent.
-    
+    IMPORTANT:
+    - If you are not sure, set "confidence" below 0.5.
+    - If the user asks something you don't understand, set intent to "UNKNOWN".
     EXAMPLES:
     Input: "廁所在哪裡？"
     Output: {"intent": "STORE_TOILET"}
