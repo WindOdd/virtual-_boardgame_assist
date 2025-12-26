@@ -50,6 +50,7 @@ class Pipeline:
         # 2. Initialize Semantic Router (Delegate to new class)
         # 從 system_config 抓 embedding 設定，從 semantic_routes 抓資料
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
+        print(embedding_config)
         self.semantic_router = SemanticRouter(
             model_config=embedding_config,
             routes_config=self.semantic_routes
@@ -63,9 +64,9 @@ class Pipeline:
         try:
             self.store_info = ConfigLoader(self.config_dir / "store_info.yaml").load()
             self.intent_map = ConfigLoader(self.config_dir / "intent_map.yaml").load()
-            self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml").load()
+            self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml")
+            self.cloud_prompts = PromptManager(self.config_dir / "prompts_cloud.yaml")
             self.system_config = ConfigLoader(self.config_dir / "system_config.yaml").load()
-            print(self.system_config)
             # Optional Configs
             try:
                 self.semantic_routes = ConfigLoader(self.config_dir / "semantic_routes.yaml").load()
@@ -143,12 +144,10 @@ class Pipeline:
 
     # ... (其餘 _route_with_llm, _check_allowlist, _dispatch 保持不變)
     async def _route_with_llm(self, user_input: str, llm_service) -> RouterResult:
-        router_config = self.local_prompts.get("router", {})
-        system_prompt = router_config.get("system_prompt", "")
+        router_config = self.local_prompts.get_task_config("router")
+        system_prompt = self.local_prompts.get_system_prompt("router")
         if not self.local_llm:
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="error")
-        router_config = self.local_prompts.get("router", {})
-        system_prompt = router_config.get("system_prompt", "")
         try:
             response = await self.local_llm.generate_json(user_input, system_prompt)
             intent = response.get("intent", "CASUAL_CHAT")
@@ -215,8 +214,11 @@ if __name__ == "__main__":
     print("Use Ask :你好我想知道你們有賣哪些桌遊")
     print(asyncio.run(p.process("你好我想知道你們有賣哪些桌遊")))
     time.sleep(1)
-    print("Use Ask :你好我想知道店裡有賣什麼")
-    print(asyncio.run(p.process("你好我想知道店裡有賣什麼")))
+    print("Use Ask :你好我想知道店裡有賣吃的嗎")
+    print(asyncio.run(p.process("你好我想知道店裡有賣吃的嗎")))
     time.sleep(1)
     print("Use Ask :有網路嗎")
     print(asyncio.run(p.process("有網路嗎")))
+    time.sleep(1)
+    print("Use Ask 有賣喝的嗎")
+    print(asyncio.run(p.process("有賣喝的嗎")))
