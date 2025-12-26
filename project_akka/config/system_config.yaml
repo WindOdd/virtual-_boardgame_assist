@@ -20,12 +20,12 @@ model:
     name: "gemini-2.5-flash"
     provider: "google"
     description: "Cloud LLM for complex reasoning tasks"
-embedding:
-    name: "intfloat/multilingual-e5-small"
-    provider: "fastembed"
-    description: "On-device CPU semantic router (Latency < 50ms)"
-    cache_dir: "model_cache/"  # 指定模型下載路徑，避免每次重抓
-    threshold: 0.9            # 信心門檻值 (可在此微調) 
+  embedding:
+      name: "intfloat/multilingual-e5-small"
+      provider: "fastembed"
+      description: "On-device CPU semantic router (Latency < 50ms)"
+      cache_dir: "model_cache/"  # 指定模型下載路徑，避免每次重抓
+      threshold: 0.9            # 信心門檻值 (可在此微調) 
 # Hardware optimization hints for Jetson Orin Nano
 hardware:
   target_device: "jetson_orin_nano"

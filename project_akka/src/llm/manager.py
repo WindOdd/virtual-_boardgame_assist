@@ -19,19 +19,21 @@ class LLMServiceManager:
 
         # 1. 初始化 Local (Ollama)
         local_cfg = model_cfg.get("local")
-        if local_cfg and local_cfg.get("provider") == "ollama":
+        if local_cfg:
             try:
                 self.local_client = OllamaClient(local_cfg)
             except Exception as e:
                 logger.error(f"Failed to init Local LLM: {e}")
+                raise e
 
         # 2. 初始化 Cloud (Gemini)
         cloud_cfg = model_cfg.get("cloud")
-        if cloud_cfg and cloud_cfg.get("provider") == "google":
+        if cloud_cfg:
             try:
                 self.cloud_client = GeminiClient(cloud_cfg)
             except Exception as e:
-                logger.warning(f"Cloud LLM disabled (Check API Key): {e}")
+                logger.warning(f"⚠️ Cloud LLM disabled: {e}")
+                self.cloud_client = None
 
     def get_local(self):
         if not self.local_client:

@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 class OllamaClient(BaseLLMClient):
     def __init__(self, config: Dict[str, Any]):
         # 從 system_config.yaml 的 model.local 讀取
-        self.model_name = config.get("name", "qwen3:4b-instruct")
+        self.model_name = config.get("name")
+        if not self.model_name:
+            raise ValueError("❌ Local LLM config missing 'name'. Check system_config.yaml")
         # 預設 host，若 config 沒寫則用 localhost
         self.base_url = config.get("host", "http://localhost:11434")
         self.timeout = config.get("timeout", 30)

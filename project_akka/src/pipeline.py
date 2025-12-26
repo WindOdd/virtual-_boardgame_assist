@@ -49,7 +49,7 @@ class Pipeline:
         
         # 2. Initialize Semantic Router (Delegate to new class)
         # 從 system_config 抓 embedding 設定，從 semantic_routes 抓資料
-        embedding_config = self.system_config.get("embedding", {})
+        embedding_config = self.system_config.get("model", {}).get("embedding", {})
         print(embedding_config)
         self.semantic_router = SemanticRouter(
             model_config=embedding_config,
