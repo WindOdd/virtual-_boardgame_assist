@@ -50,7 +50,6 @@ class Pipeline:
         # 2. Initialize Semantic Router (Delegate to new class)
         # 從 system_config 抓 embedding 設定，從 semantic_routes 抓資料
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
-        print(embedding_config)
         self.semantic_router = SemanticRouter(
             model_config=embedding_config,
             routes_config=self.semantic_routes
@@ -64,8 +63,9 @@ class Pipeline:
         try:
             self.store_info = ConfigLoader(self.config_dir / "store_info.yaml").load()
             self.intent_map = ConfigLoader(self.config_dir / "intent_map.yaml").load()
-            self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml")
+            self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml").load()
             self.system_config = ConfigLoader(self.config_dir / "system_config.yaml").load()
+            print(self.system_config)
             # Optional Configs
             try:
                 self.semantic_routes = ConfigLoader(self.config_dir / "semantic_routes.yaml").load()
@@ -93,6 +93,7 @@ class Pipeline:
         self._load_configs()
         # Re-init router with new configs
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
+        print(embedding_config)
         self.semantic_router = SemanticRouter(embedding_config, self.semantic_routes)
 
     async def process(self, user_input: str, llm_service=None) -> PipelineResult:
@@ -115,7 +116,7 @@ class Pipeline:
             )
 
         # --- Stage 2: LLM Intent Routing ---
-        if llm_service is None:
+        if self.llm_manager is None:
             return PipelineResult(response="系統維護中...", source="error")
 
         logger.info("🐢 FastPath Miss. Engaging LLM Router...")
