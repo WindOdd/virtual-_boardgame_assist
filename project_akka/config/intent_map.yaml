@@ -7,10 +7,18 @@ logic_intents:
   - "SENSITIVE"
   - "RULES"
   - "CASUAL_CHAT"
-
+SENSITIVE:
+  handler: "reject"
+  response: "抱歉，我們不討論這個話題喔。"
+RULES:
+  handler: "online_llm"
+  task: "rules"
 # B. 內容意圖 (Content Intents)
 # 這些意圖直接查表回傳 store_info.yaml 的內容
 # 格式: INTENT_NAME: [path_node_1, path_node_2, ...]
+CASUAL_CHAT:
+  handler: "local_llm"
+  task: "casual_chat"
 content_map:
   # 1. 簡單對應
   STORE_WIFI:     ["wifi"]

@@ -222,3 +222,6 @@ if __name__ == "__main__":
     time.sleep(1)
     print("Use Ask 有賣喝的嗎")
     print(asyncio.run(p.process("有賣喝的嗎")))
+    time.sleep(1)
+    print("Use Ask 好無聊喔")
+    print(asyncio.run(p.process("好無聊喔")))
