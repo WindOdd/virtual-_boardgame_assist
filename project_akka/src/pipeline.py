@@ -222,9 +222,14 @@ if __name__ == "__main__":
     print("Use Ask 有賣喝的嗎")
     print(asyncio.run(p.process("有賣喝的嗎")))
     time.sleep(1)
+<<<<<<< HEAD
     print("Use Ask 你誰誰啊？")
     print(asyncio.run(p.process("你誰誰啊？")))
     time.sleep(1)
     print("Use Ask 好無聊喔")
     print(asyncio.run(p.process("好無聊喔")))
     
+=======
+    print("Use Ask 好無聊喔")
+    print(asyncio.run(p.process("好無聊喔")))
+>>>>>>> 26ad6b07a6077cbfe8ae81b37e4f0781e0cf8548

@@ -13,7 +13,7 @@ udp_service:
 
 model:
   local:
-    name: "qwen3:4b-instruct"
+    name: "boardgame_v2"
     provider: "ollama"
     description: "Local LLM running on Jetson Orin Nano"
   cloud:

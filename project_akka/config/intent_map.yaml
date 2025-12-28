@@ -4,6 +4,7 @@
 # A. 邏輯意圖 (Logic Intents)
 # 這些意圖觸發程式碼中的特殊函式 (RAFilter)
 logic_intents:
+<<<<<<< HEAD
   SENSITIVE:
     handler: "reject"
     response: "抱歉，我們不討論這個話題喔"
@@ -17,9 +18,23 @@ logic_intents:
     handler: "local_llm"
     task: "store_intro"
 
+=======
+  - "SENSITIVE"
+  - "RULES"
+  - "CASUAL_CHAT"
+SENSITIVE:
+  handler: "reject"
+  response: "抱歉，我們不討論這個話題喔。"
+RULES:
+  handler: "online_llm"
+  task: "rules"
+>>>>>>> 26ad6b07a6077cbfe8ae81b37e4f0781e0cf8548
 # B. 內容意圖 (Content Intents)
 # 這些意圖直接查表回傳 store_info.yaml 的內容
 # 格式: INTENT_NAME: [path_node_1, path_node_2, ...]
+CASUAL_CHAT:
+  handler: "local_llm"
+  task: "casual_chat"
 content_map:
   # 1. 簡單對應
   STORE_WIFI:     ["wifi"]
