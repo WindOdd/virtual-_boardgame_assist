@@ -4,9 +4,9 @@
 # A. 邏輯意圖 (Logic Intents)
 # 這些意圖觸發程式碼中的特殊函式 (RAG, Chat, Filter)
 logic_intents:
-  - "SENSITIVE"
-  - "RULES"
-  - "CASUAL_CHAT"
+  "SENSITIVE"
+  "RULES"
+  "CASUAL_CHAT"
 
 # B. 內容意圖 (Content Intents)
 # 這些意圖直接查表回傳 store_info.yaml 的內容
