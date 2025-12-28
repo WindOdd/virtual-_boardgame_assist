@@ -1,40 +1,37 @@
-# config/intent_map.yaml
-# 用途：定義 Intent 字串如何對應到 store_info.yaml 的資料路徑
+# Source: config/intent_map.yaml
+# Logic: Maps Router Intents to Handlers
 
-# A. 邏輯意圖 (Logic Intents)
-# 這些意圖觸發程式碼中的特殊函式 (RAFilter)
+# A. 邏輯意圖 (Logic Intents) - 需要 Python 運算
 logic_intents:
   SENSITIVE:
-    handler: "reject"
-    response: "抱歉，我們不討論這個話題喔"
+    handler: "reject"          # 直接拒絕，不進 LLM
+    response: "抱歉，我們專注在桌遊話題上呦！有什麼遊戲問題可以問我～"
+  
   RULES:
-    handler: "online_llm"
-    task: "rules"
+    handler: "cloud_rag"       # 呼叫 Gemini + RAG
+    task: "explain_rules"
+  
   CASUAL_CHAT:
-    handler: "online_llm"
-    task: "chat"
-  STORE_INTRO:
-    handler: "local_llm"
-    task: "store_intro"
-# B. 內容意圖 (Content Intents)
-# 這些意圖直接查表回傳 store_info.yaml 的內容
-# 格式: INTENT_NAME: [path_node_1, path_node_2, ...]
-CASUAL_CHAT:
-  handler: "local_llm"
-  task: "casual_chat"
+    handler: "local_llm"       # 呼叫 Qwen Persona
+    task: "casual_chat"
+
+# B. 內容意圖 (Content Intents) - 直接查 store_info.yaml
+# 注意：這裡對應的是 store_info.yaml 的第一層 Key
 content_map:
-  # 1. 簡單對應
-  STORE_WIFI:     ["wifi"]
-  STORE_TOILET:   ["toilet"]
-  STORE_PRICING:  ["pricing"]
+  STORE_WIFI:      ["STORE_WIFI"]
+  STORE_TOILET:    ["STORE_TOILET"]
+  STORE_PRICING:   ["STORE_PRICING"]
+  STORE_HOURS:     ["STORE_HOURS"]
+  STORE_FOOD:      ["STORE_FOOD"]
+  
+  # 將以下三者合併指到 STORE_INTRO (或各自獨立，視 store_info 而定)
+  STORE_INTRO:     ["STORE_INTRO"]  
+  STORE_LOCATION:  ["STORE_ADDRESS"] # 對應到 STORE_ADDRESS
+  STORE_PHONE:     ["STORE_PHONE"]
 
-  # 2. 基本資訊 (Basic Info)
-  STORE_INTRO:    ["basic_info", "general"]
-  STORE_LOCATION: ["basic_info", "specific", "address"]
-  STORE_PHONE:    ["basic_info", "specific", "phone"]
-  STORE_HOURS:    ["basic_info", "specific", "hours"]
+  UNKNOWN:         ["UNKNOWN_FALLBACK"]
 
-  # 3. 服務資訊 (Service)
-  STORE_SERVICE:  ["service", "general"]
-  STORE_FOOD:     ["service", "specific", "food"]
-  STORE_BOOKING:  ["service", "specific", "booking"]
+# C. 兜底策略
+fallback:
+  default_intent: "CASUAL_CHAT"
+  min_confidence: 0.6

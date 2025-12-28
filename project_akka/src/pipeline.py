@@ -50,7 +50,6 @@ class Pipeline:
         # 2. Initialize Semantic Router (Delegate to new class)
         # 從 system_config 抓 embedding 設定，從 semantic_routes 抓資料
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
-        print(embedding_config)
         self.semantic_router = SemanticRouter(
             model_config=embedding_config,
             routes_config=self.semantic_routes
@@ -94,7 +93,6 @@ class Pipeline:
         self._load_configs()
         # Re-init router with new configs
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
-        print(embedding_config)
         self.semantic_router = SemanticRouter(embedding_config, self.semantic_routes)
 
     async def process(self, user_input: str, llm_service=None) -> PipelineResult:
@@ -105,7 +103,7 @@ class Pipeline:
         # --- Stage 1: Semantic Vector Routing (FastPath) ---
         # 呼叫獨立的 router 物件
         semantic_intent, score = self.semantic_router.route(user_input)
-        
+    
         if semantic_intent:
             logger.info(f"⚡ FastPath Hit: {semantic_intent} (Score: {score:.4f})")
             response, source = await self._dispatch(semantic_intent, user_input, None)
@@ -121,8 +119,9 @@ class Pipeline:
             return PipelineResult(response="系統維護中...", source="error")
 
         logger.info("🐢 FastPath Miss. Engaging LLM Router...")
-        router_result = await self._route_with_llm(user_input, llm_service)
-        
+    
+        router_result = await self._route_with_llm(user_input, self.local_llm)
+        print(f"====router_result============:\n {router_result}\n")
         # --- Stage 3: Safety Filter ---
         if router_result.intent == "SENSITIVE":
             if self._check_allowlist(user_input):
@@ -144,16 +143,18 @@ class Pipeline:
     # ... (其餘 _route_with_llm, _check_allowlist, _dispatch 保持不變)
     async def _route_with_llm(self, user_input: str, llm_service) -> RouterResult:
         router_config = self.local_prompts.get_task_config("router")
-        system_prompt = self.local_prompts.get_system_prompt("router")
+        system_prompt = router_config.get("system_prompt", "")
+        if not system_prompt:
+            logger.warning("Router system prompt is empty!")
         if not self.local_llm:
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="error")
         try:
             response = await self.local_llm.generate_json(user_input, system_prompt)
-            intent = response.get("intent", "CASUAL_CHAT")
+            intent = response.get("intent", "UNKNOWN")
             confidence = response.get("confidence", 0.0)
             return RouterResult(intent=intent, confidence=confidence, source="llm")
         except Exception:
-            return RouterResult(intent="CASUAL_CHAT", confidence=0.0, source="fallback")
+            return RouterResult(intent="UNKNOWN", confidence=0.0, source="fallback")
 
     def _check_allowlist(self, user_input: str) -> bool:
         try:
@@ -176,11 +177,11 @@ class Pipeline:
         if intent in logic_intents:
             logic_config = logic_intents[intent]
             handler = logic_config.get("handler", "")
-            
-            if handler == "local_llm" and llm_service:
+            print(f"handler: {handler} ; intent: {intent}")
+            if handler == "local_llm" and self.local_llm:
                 task = logic_config.get("task", "casual_chat")
-                sys_prompt = self.local_prompts.get(task, {}).get("system_prompt", "")
-                resp = await llm_service.generate(user_input, sys_prompt)
+                sys_prompt = self.local_prompts.get_task_config("casual_chat").get("system_prompt", "")
+                resp = await self.local_llm.generate(user_input, sys_prompt)
                 return (resp.content, "local_llm_gen")
             elif handler == "reject":
                 return (logic_config.get("response", "抱歉"), "reject")
@@ -227,3 +228,9 @@ if __name__ == "__main__":
     time.sleep(1)
     print("Use Ask 好無聊喔")
     print(asyncio.run(p.process("好無聊喔")))
+    time.sleep(1)
+    print("Use Ask 台獨萬歲")
+    print(asyncio.run(p.process("台獨萬歲")))
+    time.sleep(1)
+    print("Use Ask 你有支援哪些遊戲")
+    print(asyncio.run(p.process("你有支援哪些遊戲")))

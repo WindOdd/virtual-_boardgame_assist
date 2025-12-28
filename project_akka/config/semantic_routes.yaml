@@ -10,6 +10,13 @@ STORE_WIFI:
   - "密碼多少"
   - "有沒有wifi"
   - "網路慢"
+  - "Wi-Fi"
+  - "wifi"
+  - "網路"
+  - "wifi密碼"
+  - "wifi密碼多少"
+  - "wifi密碼多少錢"
+  - "WIFI"
 
 STORE_TOILET:
   - "廁所在哪"
