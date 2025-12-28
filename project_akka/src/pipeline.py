@@ -127,7 +127,6 @@ class Pipeline:
         if router_result.intent == "SENSITIVE":
             if self._check_allowlist(user_input):
                 router_result.intent = "RULES"
-
         # --- Stage 4: Dispatch ---
         response, source = await self._dispatch(
             router_result.intent, 
@@ -222,3 +221,10 @@ if __name__ == "__main__":
     time.sleep(1)
     print("Use Ask 有賣喝的嗎")
     print(asyncio.run(p.process("有賣喝的嗎")))
+    time.sleep(1)
+    print("Use Ask 你誰誰啊？")
+    print(asyncio.run(p.process("你誰誰啊？")))
+    time.sleep(1)
+    print("Use Ask 好無聊喔")
+    print(asyncio.run(p.process("好無聊喔")))
+    

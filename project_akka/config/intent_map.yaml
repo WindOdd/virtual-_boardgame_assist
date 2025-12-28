@@ -2,11 +2,20 @@
 # 用途：定義 Intent 字串如何對應到 store_info.yaml 的資料路徑
 
 # A. 邏輯意圖 (Logic Intents)
-# 這些意圖觸發程式碼中的特殊函式 (RAG, Chat, Filter)
+# 這些意圖觸發程式碼中的特殊函式 (RAFilter)
 logic_intents:
-  "SENSITIVE"
-  "RULES"
-  "CASUAL_CHAT"
+  SENSITIVE:
+    handler: "reject"
+    response: "抱歉，我們不討論這個話題喔"
+  RULES:
+    handler: "online_llm"
+    task: "rules"
+  CASUAL_CHAT:
+    handler: "online_llm"
+    task: "chat"
+  STORE_INTRO:
+    handler: "local_llm"
+    task: "store_intro"
 
 # B. 內容意圖 (Content Intents)
 # 這些意圖直接查表回傳 store_info.yaml 的內容
