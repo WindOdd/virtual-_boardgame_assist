@@ -93,7 +93,13 @@ class Pipeline:
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
         self.semantic_router = SemanticRouter(embedding_config, self.semantic_routes)
 
-    async def process(self, user_input: str, history: List[Dict[str, Any]] = None, llm_service=None) -> PipelineResult:
+    async def process(
+        self, 
+        user_input: str, 
+        history: List[Dict[str, Any]] = None, 
+        game_context: Dict[str, Any] = None, # <--- 新增這裡
+        llm_service=None
+    ) -> PipelineResult:
         """
         Main processing pipeline.
         Args:
@@ -155,12 +161,15 @@ class Pipeline:
         if router_result.intent == "SENSITIVE":
             if self._check_allowlist(user_input):
                 router_result.intent = "RULES"
-
+        context_pack = {
+            "history": history,
+            "game_context": game_context
+        }
         # --- Stage 4: Dispatch ---
         response, source = await self._dispatch(
             router_result.intent, 
             user_input, 
-            llm_service
+            context_pack
         )
         
         return PipelineResult(
@@ -237,55 +246,51 @@ class Pipeline:
         return (random.choice(fallback), "fallback")
     # src/pipeline.py -> class Pipeline
 
+# [新增] 整個函式
     async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
         """
         專門處理 RULES 意圖的邏輯函式
-        1. 解析 Client 傳來的 Game Name
-        2. 透過 DataManager 載入對應規則書
-        3. 組合 Prompt 並呼叫 Cloud LLM
         """
-        # 1. 取得遊戲名稱 (從 Client 傳來的 context)
-        game_ctx = context.get("game_context", {})
-        # 優先使用 Client 傳來的 ID，如果沒有則用預設值 (如 'Carcassonne')
-        game_id = game_ctx.get("game_name", "Carcassonne")
+        # 1. 取得遊戲名稱 (優先使用 Client 傳來的 context)
+        ctx = context if isinstance(context, dict) else {}
+        game_ctx = ctx.get("game_context", {}) or {}
+        game_id = game_ctx.get("game_name", "Carcassonne") # 預設值
         
-        # 2. 透過 DataManager 取得規則內容 (它會自動查 registry 找路徑)
-        # 這裡利用了您現有的 data_manager.py 的功能
+        # 2. 透過 DataManager 取得規則內容
         rule_content = self.data_manager.get_rules(game_id)
         
         if not rule_content:
             logger.warning(f"Rulebook not found for game_id: {game_id}")
-            # 嘗試用通用規則或回傳錯誤
-            rule_content = "（系統提示：目前找不到此遊戲的詳細規則資料，請依據您的通用知識回答，並告知使用者規則書缺失。）"
+            rule_content = "（系統提示：目前找不到此遊戲的詳細規則資料，請依據您的通用知識回答。）"
 
-        # 3. 讀取 System Prompt Template (從 prompts_cloud.yaml)
-        # task_name 對應 prompts_cloud.yaml 裡的 key
+        # 3. 讀取 System Prompt Template
         task_config = self.cloud_prompts.get_task_config("rules_explainer")
         system_template = task_config.get("system_prompt", "")
         
-        # 4. 注入規則 (Prompt Injection)
-        # 將 Template 中的 {INJECTED_RAG_CONTENT} 替換成真實規則內容
+        # 4. 注入規則
         final_system_prompt = system_template.replace("{INJECTED_RAG_CONTENT}", rule_content)
         
-        # 5. 準備歷史紀錄 (History)
-        history = context.get("history", [])
-        
-        # 6. 呼叫雲端大腦 (Cloud LLM)
+        # 5. 呼叫雲端大腦
         try:
-            # 呼叫 src/llm/cloud_llm_client.py
-            response = await self.cloud_llm.generate(
-                prompt=user_input,
-                # 注意：這裡我們把 "System Prompt + 規則書" 當作 system_instruction 傳入
+            history = ctx.get("history", [])
+            
+            # 呼叫 Cloud LLM
+            raw_response = await self.cloud_llm.generate(
+                user_input,
                 system_prompt=final_system_prompt
-                # History 的處理通常由 LLM Client 內部處理，或是這裡將 history 轉成文字串接在 prompt 前
-                # 視您的 CloudLLMClient 實作而定。如果是 Google GenAI SDK，通常需要轉成 message list。
-                # 這裡假設 generate 方法能處理基礎文字生成。
+                # history=history (視您的 client 實作是否支援 history 參數)
             )
-            return (response.content, "cloud_gen")
+            
+            # 取得文字內容
+            response_text = raw_response.content if hasattr(raw_response, "content") else str(raw_response)
+            
+            # 直接回傳，不做 TTS 清洗
+            return (response_text, "cloud_gen")
             
         except Exception as e:
             logger.error(f"Cloud Handling Error: {e}")
             return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error")
+
 def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
     return Pipeline(config_dir=config_dir)
 

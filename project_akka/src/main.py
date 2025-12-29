@@ -1,41 +1,71 @@
 """
-Project Akka - FastAPI Entrypoint
-Board Game Assistant for NVIDIA Jetson Orin Nano
+Project Akka - FastAPI Server
+Exposes the pipeline as a REST API for iPad/Client.
 """
+import logging
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
-from fastapi import FastAPI
+# Import 您的 Pipeline 工廠函式
+from pipeline import create_pipeline
 
-app = FastAPI(
-    title="Project Akka",
-    description="Tablet-First Board Game Assistant",
-    version="0.1.0"
-)
+# 設定 Logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("akka_server")
 
+app = FastAPI(title="Project Akka API v9.6")
 
-@app.get("/")
-async def root():
-    """Health check endpoint."""
-    return {"status": "ok", "message": "Project Akka is running"}
+# 初始化 Pipeline (全域變數，啟動時載入一次)
+pipeline = create_pipeline()
 
+# --- 定義資料模型 (Data Models) ---
+class ChatRequest(BaseModel):
+    user_input: str
+    # 接收 Client 傳來的完整歷史 (包含 intent)
+    history: Optional[List[Dict[str, Any]]] = [] 
+    # [NEW] 接收遊戲狀態 (如 {"game_name": "Carcassonne"})
+    game_context: Optional[Dict[str, Any]] = {} 
 
-@app.get("/health")
-async def health_check():
-    """Detailed health check."""
-    return {
-        "status": "healthy",
-        "service": "Project Akka",
-        "version": "0.1.0"
-    }
+class ChatResponse(BaseModel):
+    response: str
+    intent: str
+    confidence: float
+    source: str
 
-@app.post("/chat")
-async def chat():
-    print("Chat endpoint hit")
-# TODO: Add routes for:
-# - /chat (main conversation endpoint)
-# - /games (list available games)
-# - /rules/{game_id} (get game rules)
+@app.on_event("startup")
+async def startup_event():
+    logger.info("🚀 Akka Server Starting...")
+    # 可以在這裡預熱模型
+    pass
 
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    主要對話接口
+    Client 需傳入: {"user_input": "...", "history": [...], "game_context": {...}}
+    """
+    logger.info(f"📨 Request: {request.user_input} | Context: {request.game_context}")
+    
+    try:
+        # 呼叫 Pipeline 處理
+        result = await pipeline.process(
+            user_input=request.user_input,
+            history=request.history,
+            game_context=request.game_context
+        )
+        
+        return ChatResponse(
+            response=result.response,
+            intent=result.intent or "UNKNOWN",
+            confidence=result.confidence,
+            source=result.source
+        )
+    except Exception as e:
+        logger.error(f"❌ Server Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
+    # 啟動 Server，監聽所有 IP
     uvicorn.run(app, host="0.0.0.0", port=8000)
