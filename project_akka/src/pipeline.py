@@ -204,7 +204,7 @@ class Pipeline:
             pass
         return False
 
-    async def _dispatch(self, intent: str, user_input: str, llm_service) -> tuple[str, str]:
+    async def _dispatch(self, intent: str, user_input: str, context: Any = None) -> tuple[str, str]:
         responses_map = self.store_info.get("responses", {})
         
         # 1. Static Responses
@@ -224,14 +224,68 @@ class Pipeline:
                 sys_prompt = self.local_prompts.get_task_config("casual_chat").get("system_prompt", "")
                 resp = await self.local_llm.generate(user_input, sys_prompt)
                 return (resp.content, "local_llm_gen")
-                
+            elif handler in ["online_llm", "cloud_llm", "cloud_rag"]:
+                if self.cloud_llm:
+                    return await self._handle_rules_query(user_input, context)
+                else:
+                    return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error")
             elif handler == "reject":
                 return (logic_config.get("response", "抱歉"), "reject")
 
         # 3. Fallback
         fallback = self.store_info.get("responses", {}).get("UNKNOWN_FALLBACK", ["抱歉？"])
         return (random.choice(fallback), "fallback")
+    # src/pipeline.py -> class Pipeline
 
+    async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
+        """
+        專門處理 RULES 意圖的邏輯函式
+        1. 解析 Client 傳來的 Game Name
+        2. 透過 DataManager 載入對應規則書
+        3. 組合 Prompt 並呼叫 Cloud LLM
+        """
+        # 1. 取得遊戲名稱 (從 Client 傳來的 context)
+        game_ctx = context.get("game_context", {})
+        # 優先使用 Client 傳來的 ID，如果沒有則用預設值 (如 'Carcassonne')
+        game_id = game_ctx.get("game_name", "Carcassonne")
+        
+        # 2. 透過 DataManager 取得規則內容 (它會自動查 registry 找路徑)
+        # 這裡利用了您現有的 data_manager.py 的功能
+        rule_content = self.data_manager.get_rules(game_id)
+        
+        if not rule_content:
+            logger.warning(f"Rulebook not found for game_id: {game_id}")
+            # 嘗試用通用規則或回傳錯誤
+            rule_content = "（系統提示：目前找不到此遊戲的詳細規則資料，請依據您的通用知識回答，並告知使用者規則書缺失。）"
+
+        # 3. 讀取 System Prompt Template (從 prompts_cloud.yaml)
+        # task_name 對應 prompts_cloud.yaml 裡的 key
+        task_config = self.cloud_prompts.get_task_config("rules_explainer")
+        system_template = task_config.get("system_prompt", "")
+        
+        # 4. 注入規則 (Prompt Injection)
+        # 將 Template 中的 {INJECTED_RAG_CONTENT} 替換成真實規則內容
+        final_system_prompt = system_template.replace("{INJECTED_RAG_CONTENT}", rule_content)
+        
+        # 5. 準備歷史紀錄 (History)
+        history = context.get("history", [])
+        
+        # 6. 呼叫雲端大腦 (Cloud LLM)
+        try:
+            # 呼叫 src/llm/cloud_llm_client.py
+            response = await self.cloud_llm.generate(
+                prompt=user_input,
+                # 注意：這裡我們把 "System Prompt + 規則書" 當作 system_instruction 傳入
+                system_prompt=final_system_prompt
+                # History 的處理通常由 LLM Client 內部處理，或是這裡將 history 轉成文字串接在 prompt 前
+                # 視您的 CloudLLMClient 實作而定。如果是 Google GenAI SDK，通常需要轉成 message list。
+                # 這裡假設 generate 方法能處理基礎文字生成。
+            )
+            return (response.content, "cloud_gen")
+            
+        except Exception as e:
+            logger.error(f"Cloud Handling Error: {e}")
+            return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error")
 def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
     return Pipeline(config_dir=config_dir)
 
