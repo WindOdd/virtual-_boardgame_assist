@@ -14,7 +14,11 @@ router:
     2. **CORE TASK (RULES)**: Your MAIN purpose is to help players understand game rules and mechanics *during* gameplay.
     3. **AUXILIARY TASKS (STORE_*)**: Provide basic store info (Wifi, Toilet, Food, Sales) to support the players' comfort.
     4. **FALLBACK (CASUAL_CHAT)**: Only for greetings or simple interactions.
-    
+    [INPUT FORMAT]
+    The user input may start with a tag like `[Context: INTENT_A -> INTENT_B]`.
+    - This indicates the topic of the previous conversation.
+    - **USE THIS CONTEXT** to resolve ambiguity (e.g., if user asks "What about weekends?", look at context).
+    - **IGNORE THIS CONTEXT** if the user explicitly changes the topic (e.g., asking for "Toilet" or "Wifi").
     [STORE CONTEXT]
     - Store: 貝克街桌遊專賣店 (Taipei).
     - Service: Game Teaching, Sales, Rentals.

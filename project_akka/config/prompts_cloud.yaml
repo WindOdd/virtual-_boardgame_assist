@@ -1,6 +1,6 @@
 rules_explainer:
   temperature: 0.7
-  max_tokens: 2048
+  max_tokens: 4096
   
   system_prompt: |
     你現在是桌遊店的專業規則講解員 Akka。

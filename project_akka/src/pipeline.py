@@ -1,23 +1,26 @@
 """
 Project Akka - Pipeline Module
 Orchestrator for Hybrid Routing (Semantic -> LLM)
+Refactored for Stateless Architecture (v9.6)
 """
 
 import logging
 import asyncio
 import random
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+
 try:
     from .llm import LLMServiceManager
 except ImportError:
     from llm.manager import LLMServiceManager
+
 # Project modules
 try:
     from .boardgame_utils import ConfigLoader, PromptManager
     from .data_manager import get_data_manager
-    from .semantic_router import SemanticRouter  # [New] Import 獨立模組
+    from .semantic_router import SemanticRouter
 except ImportError:
     from boardgame_utils import ConfigLoader, PromptManager
     from data_manager import get_data_manager
@@ -44,16 +47,18 @@ class Pipeline:
         self.data_manager = get_data_manager()
         self.system_config = {}
         self.semantic_routes = {}
+        
         # 1. Load Configurations
         self._load_configs()
         
-        # 2. Initialize Semantic Router (Delegate to new class)
-        # 從 system_config 抓 embedding 設定，從 semantic_routes 抓資料
+        # 2. Initialize Semantic Router
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
         self.semantic_router = SemanticRouter(
             model_config=embedding_config,
             routes_config=self.semantic_routes
         )
+        
+        # 3. Initialize LLM Manager
         self.llm_manager = LLMServiceManager(self.system_config)
         self.local_llm = self.llm_manager.get_local()
         self.cloud_llm = self.llm_manager.get_cloud()
@@ -66,6 +71,7 @@ class Pipeline:
             self.local_prompts = PromptManager(self.config_dir / "prompts_local.yaml")
             self.cloud_prompts = PromptManager(self.config_dir / "prompts_cloud.yaml")
             self.system_config = ConfigLoader(self.config_dir / "system_config.yaml").load()
+            
             # Optional Configs
             try:
                 self.semantic_routes = ConfigLoader(self.config_dir / "semantic_routes.yaml").load()
@@ -73,16 +79,9 @@ class Pipeline:
                 logger.warning("semantic_routes.yaml missing.")
                 self.semantic_routes = {}
             
-            try:
-                self.system_config = ConfigLoader(self.config_dir / "system_config.yaml").load()
-            except Exception:
-                logger.error("system_config.yaml missing!")
-                self.system_config = {}
-
             logger.info("Config loaded.")
         except Exception as e:
             logger.error(f"Config load failed: {e}")
-            # Init empty defaults
             self.store_info = {}
             self.semantic_routes = {}
             self.intent_map = {}
@@ -91,17 +90,38 @@ class Pipeline:
     def reload_configs(self) -> None:
         logger.info("Reloading configurations...")
         self._load_configs()
-        # Re-init router with new configs
         embedding_config = self.system_config.get("model", {}).get("embedding", {})
         self.semantic_router = SemanticRouter(embedding_config, self.semantic_routes)
 
-    async def process(self, user_input: str, llm_service=None) -> PipelineResult:
+    async def process(self, user_input: str, history: List[Dict[str, Any]] = None, llm_service=None) -> PipelineResult:
+        """
+        Main processing pipeline.
+        Args:
+            user_input: The current user query.
+            history: List of past turns (provided by Client) to extract context.
+        """
         user_input = user_input.strip()
         if not user_input:
             return PipelineResult(response="...", source="empty")
 
+        # ============================================================
+        # [NEW] Stage 0: Context Extraction (Stateless Logic)
+        # ============================================================
+        context_str = ""
+        if history:
+            # 篩選規則：只看 User 的發言，且該發言必須帶有 intent
+            recent_user_logs = [
+                msg for msg in history 
+                if msg.get("role") == "user" and msg.get("intent")
+            ]
+            
+            if recent_user_logs:
+                # 取出最後 2 次的意圖軌跡 (例如: RULES -> STORE_PRICING)
+                last_intents = [msg["intent"] for msg in recent_user_logs[-2:]]
+                context_str = " -> ".join(last_intents)
+                logger.info(f"🕵️ Context Extracted from Request: {context_str}")
+
         # --- Stage 1: Semantic Vector Routing (FastPath) ---
-        # 呼叫獨立的 router 物件
         semantic_intent, score = self.semantic_router.route(user_input)
     
         if semantic_intent:
@@ -120,12 +140,22 @@ class Pipeline:
 
         logger.info("🐢 FastPath Miss. Engaging LLM Router...")
     
-        router_result = await self._route_with_llm(user_input, self.local_llm)
-        print(f"====router_result============:\n {router_result}\n")
+        # [MODIFY] 將 Context 注入 Prompt
+        if context_str:
+            final_input = f"[Context: {context_str}] User Input: {user_input}"
+        else:
+            final_input = user_input
+
+        # 傳送 final_input 給 Router
+        router_result = await self._route_with_llm(final_input, self.local_llm)
+        # 使用 Logger 而不是 Print，保持 Log 乾淨
+        logger.info(f"Router Result: {router_result}") 
+
         # --- Stage 3: Safety Filter ---
         if router_result.intent == "SENSITIVE":
             if self._check_allowlist(user_input):
                 router_result.intent = "RULES"
+
         # --- Stage 4: Dispatch ---
         response, source = await self._dispatch(
             router_result.intent, 
@@ -140,20 +170,27 @@ class Pipeline:
             source=source
         )
 
-    # ... (其餘 _route_with_llm, _check_allowlist, _dispatch 保持不變)
-    async def _route_with_llm(self, user_input: str, llm_service) -> RouterResult:
+    async def _route_with_llm(self, final_input: str, llm_service) -> RouterResult:
+        """
+        Sends the constructed input (with context) to the Local LLM.
+        """
         router_config = self.local_prompts.get_task_config("router")
         system_prompt = router_config.get("system_prompt", "")
+        
         if not system_prompt:
             logger.warning("Router system prompt is empty!")
+            
         if not self.local_llm:
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="error")
+            
         try:
-            response = await self.local_llm.generate_json(user_input, system_prompt)
+            # 直接使用已經組好的 final_input
+            response = await self.local_llm.generate_json(final_input, system_prompt)
             intent = response.get("intent", "UNKNOWN")
             confidence = response.get("confidence", 0.0)
             return RouterResult(intent=intent, confidence=confidence, source="llm")
-        except Exception:
+        except Exception as e:
+            logger.error(f"Router LLM Error: {e}")
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="fallback")
 
     def _check_allowlist(self, user_input: str) -> bool:
@@ -169,23 +206,29 @@ class Pipeline:
 
     async def _dispatch(self, intent: str, user_input: str, llm_service) -> tuple[str, str]:
         responses_map = self.store_info.get("responses", {})
+        
+        # 1. Static Responses
         if intent in responses_map:
             candidates = responses_map[intent]
             if candidates: return (random.choice(candidates), "content_static")
         
+        # 2. Logic Handlers
         logic_intents = self.intent_map.get("logic_intents", {})
         if intent in logic_intents:
             logic_config = logic_intents[intent]
             handler = logic_config.get("handler", "")
-            print(f"handler: {handler} ; intent: {intent}")
+            
             if handler == "local_llm" and self.local_llm:
+                # 這裡調用 Persona 進行閒聊
                 task = logic_config.get("task", "casual_chat")
                 sys_prompt = self.local_prompts.get_task_config("casual_chat").get("system_prompt", "")
                 resp = await self.local_llm.generate(user_input, sys_prompt)
                 return (resp.content, "local_llm_gen")
+                
             elif handler == "reject":
                 return (logic_config.get("response", "抱歉"), "reject")
 
+        # 3. Fallback
         fallback = self.store_info.get("responses", {}).get("UNKNOWN_FALLBACK", ["抱歉？"])
         return (random.choice(fallback), "fallback")
 
@@ -199,38 +242,25 @@ if __name__ == "__main__":
     p = create_pipeline()
     print("Pipeline Initialized.")
     print("=============================")
-    time.sleep(1)
-    print("Use Ask :想尿尿")
+    
+    # 測試 1: 一般 FastPath
+    print("\n--- Test 1: FastPath (No History) ---")
     print(asyncio.run(p.process("想尿尿")))
-    time.sleep(1)
-    print("Use Ask :Wi-Fi")
-    print(asyncio.run(p.process("Wi-Fi")))
-    time.sleep(1)
-    print("Use Ask :你好")
-    print(asyncio.run(p.process("你好")))
-    time.sleep(1)
-    print("Use Ask :你好")
-    time.sleep(1)
-    print("Use Ask :你好我想知道你們有賣哪些桌遊")
+    
+    # 測試 2: 一般 LLM Router
+    print("\n--- Test 2: LLM Router (No History) ---")
     print(asyncio.run(p.process("你好我想知道你們有賣哪些桌遊")))
-    time.sleep(1)
-    print("Use Ask :你好我想知道店裡有賣吃的嗎")
-    print(asyncio.run(p.process("你好我想知道店裡有賣吃的嗎")))
-    time.sleep(1)
-    print("Use Ask :有網路嗎")
-    print(asyncio.run(p.process("有網路嗎")))
-    time.sleep(1)
-    print("Use Ask 有賣喝的嗎")
-    print(asyncio.run(p.process("有賣喝的嗎")))
-    time.sleep(1)
-    print("Use Ask 你誰誰啊？")
-    print(asyncio.run(p.process("你誰誰啊？")))
-    time.sleep(1)
-    print("Use Ask 好無聊喔")
-    print(asyncio.run(p.process("好無聊喔")))
-    time.sleep(1)
-    print("Use Ask 台獨萬歲")
-    print(asyncio.run(p.process("台獨萬歲")))
-    time.sleep(1)
-    print("Use Ask 你有支援哪些遊戲")
-    print(asyncio.run(p.process("你有支援哪些遊戲")))
+    
+    # 測試 3: Context Aware (模擬 Client 帶入 History)
+    print("\n--- Test 3: Context Injection (Simulate Client History) ---")
+    # 情境：上一輪問了價格，這一輪只問「那假日呢？」
+    mock_history = [
+        {"role": "user", "content": "平日多少錢？", "intent": "STORE_PRICING"},
+        {"role": "assistant", "content": "平日 60 元..."}
+    ]
+    # 我們期望這句模糊的「那假日呢」能因為 History 而被識別正確
+    print(f"Input: 那假日呢？ (with context: STORE_PRICING)")
+    print(asyncio.run(p.process("那假日呢？", history=mock_history)))
+    
+    print("\n=============================")
+    print("Tests Completed.")
