@@ -2,6 +2,10 @@
 Project Akka - UDP Discovery Service
 Allows clients (iPad) to automatically find the Jetson server IP.
 Reads configuration from system_config.yaml.
+
+[Fixes applied for Jetson/Docker/Tailscale environment]:
+1. Binds to 0.0.0.0 instead of empty string.
+2. Sets SO_BROADCAST option explicitly.
 """
 import socket
 import threading
@@ -84,6 +88,7 @@ class DiscoveryService:
         """取得本機在區網中的真實 IP (而非 127.0.0.1)"""
         try:
             # 建立一個測試連線到 Google DNS (不會真的發送數據)
+            # 這能讓 OS 告訴我們如果要連外網，會走哪個 IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -96,10 +101,20 @@ class DiscoveryService:
         """持續監聽 UDP 廣播封包"""
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            # 允許 Port 重複使用
+            
+            # [Fix 1] 允許 Port 重複使用 (避免重啟時報錯 Address already in use)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # 綁定到所有介面 ("") 和指定 Port
-            self.sock.bind(("", self.port))
+            
+            # [Fix 2] 明確允許廣播 (Broadcast)
+            # 這對某些 Linux 發行版在處理 255.255.255.255 時非常重要
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            
+            # [Fix 3] 明確綁定 0.0.0.0
+            # 確保監聽所有網卡 (eth0, wlan0, docker0, tailscale0...)
+            # 之前綁定 "" 有時在複雜網路環境下會有問題
+            self.sock.bind(("0.0.0.0", self.port))
+            
+            logger.info(f"🎧 Listening for UDP broadcast on 0.0.0.0:{self.port}")
             
             while self.running:
                 try:
@@ -107,20 +122,21 @@ class DiscoveryService:
                     data, addr = self.sock.recvfrom(1024)
                     msg = data.decode().strip()
                     
-                    # [Modify] 使用設定檔中的 Magic String 進行驗證
+                    # 驗證 Magic String
                     if self.magic_string in msg:
                         # 回傳 Server 資訊
                         response = {
                             "ip": self._get_local_ip(),
-                            "port": self.api_port, # [Modify] 使用設定檔中的 API Port
+                            "port": self.api_port,
                             "status": "ready"
                         }
                         # 將 JSON 回傳給來源 IP (addr)
                         self.sock.sendto(json.dumps(response).encode(), addr)
-                        logger.debug(f"Replying to discovery from {addr} with {response}")
+                        # [Log] 改為 info 等級以便除錯，確認有收到並回傳
+                        logger.info(f"📡 Replying to discovery from {addr} with {response}")
                         
                 except OSError:
-                    # Socket closed
+                    # Socket closed (通常是 stop() 被呼叫)
                     break
                 except Exception as e:
                     logger.error(f"UDP Loop Error: {e}")
