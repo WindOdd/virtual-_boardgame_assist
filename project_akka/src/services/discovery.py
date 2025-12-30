@@ -54,3 +54,6 @@ class DiscoveryService:
                     logger.error(f"UDP Error: {e}")
         except Exception as e:
             logger.error(f"UDP Bind Failed: {e}")
+if __name__ == "__main__":
+    service = DiscoveryService()
+    service.start()
