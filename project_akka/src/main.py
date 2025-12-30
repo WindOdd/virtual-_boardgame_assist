@@ -9,10 +9,12 @@ from typing import List, Dict, Any, Optional
 
 # Import 您的 Pipeline 工廠函式
 from pipeline import create_pipeline
-
+from services.discovery import DiscoveryService
 # 設定 Logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("akka_server")
+
+discovery_service = None
 
 app = FastAPI(title="Project Akka API v9.6")
 
@@ -36,9 +38,17 @@ class ChatResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 Akka Server Starting...")
+    global discovery_service
+    discovery_service = DiscoveryService()
+    discovery_service.start()
+    logger.info("✅ Discovery Service launched")
     # 可以在這裡預熱模型
     pass
-
+@app.on_event("shutdown")
+async def shutdown_event():
+    if discovery_service:
+        discovery_service.stop()
+        logger.info("✅ Discovery Service stopped")
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
