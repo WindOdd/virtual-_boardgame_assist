@@ -51,7 +51,7 @@ async def shutdown_event():
         logger.info("✅ Discovery Service stopped")
 # --- [MODIFIED] API 1: 取得支援的遊戲列表 ---
 @app.get("/api/games")
-async def get_supported_games():
+aasync def get_supported_games():
     """
     透過 DataManager 取得遊戲列表
     """
@@ -70,8 +70,10 @@ async def get_supported_games():
 
             response_data.append({
                 "id": game.id,
-                "name": game.display_name, # Mapping: display_name -> name (Client 端用)
-                "description": description
+                "name": game.display_name,
+                "description": description,
+                # [關鍵修正] 加入這行，Client 才知道這個遊戲是否支援 STT 注入
+                "enable_stt_injection": game.enable_stt_injection 
             })
             
         return {"games": response_data}
