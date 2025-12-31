@@ -73,7 +73,7 @@ class DataManager:
                 display_name=game_data['display_name'],
                 rule_path=game_data['rule_path'],
                 keywords_path=game_data['keywords_path'],
-                enable_stt_injection=game_data.get('enable_stt_injection', True),
+                enable_stt_injection=game_data['enable_stt_injection'],
                 metadata=game_data.get('metadata', {})
             )
             self._games[game.id] = game
