@@ -247,44 +247,60 @@ class Pipeline:
     # src/pipeline.py -> class Pipeline
 
 # [新增] 整個函式
-    async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
+async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
         """
         專門處理 RULES 意圖的邏輯函式
+        修正重點：將 history 格式化並注入 System Prompt
         """
-        # 1. 取得遊戲名稱 (優先使用 Client 傳來的 context)
+        # 1. 取得遊戲名稱 & 歷史紀錄
         ctx = context if isinstance(context, dict) else {}
         game_ctx = ctx.get("game_context", {}) or {}
-        game_id = game_ctx.get("game_name", "Carcassonne") # 預設值
+        game_id = game_ctx.get("game_name", "Carcassonne") 
+        history = ctx.get("history", []) # 取得歷史紀錄 List
         
         # 2. 透過 DataManager 取得規則內容
         rule_content = self.data_manager.get_rules(game_id)
-        
         if not rule_content:
             logger.warning(f"Rulebook not found for game_id: {game_id}")
             rule_content = "（系統提示：目前找不到此遊戲的詳細規則資料，請依據您的通用知識回答。）"
 
         # 3. 讀取 System Prompt Template
+        # 假設 prompts_cloud.yaml 裡有 {INJECTED_RAG_CONTENT} 和 {history} 兩個佔位符
         task_config = self.cloud_prompts.get_task_config("rules_explainer")
         system_template = task_config.get("system_prompt", "")
         
-        # 4. 注入規則
-        final_system_prompt = system_template.replace("{INJECTED_RAG_CONTENT}", rule_content)
+        # 4. [關鍵修正] 格式化 History
+        history_str = ""
+        if history:
+            history_lines = []
+            for msg in history:
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                # 過濾掉太長的歷史紀錄以節省 Token，或只保留 RULES 相關的
+                # 這裡簡單全留，標註角色即可
+                history_lines.append(f"{role}: {content}")
+            history_str = "\n".join(history_lines)
+        else:
+            history_str = "(No previous conversation)"
+
+        # 5. 注入變數 (規則 + 歷史)
+        # 注意：這裡使用 replace 簡單替換。建議確認 YAML 裡的佔位符名稱是否一致。
+        final_system_prompt = (
+            system_template
+            .replace("{INJECTED_RAG_CONTENT}", rule_content)
+            .replace("{history}", history_str) 
+        )
         
-        # 5. 呼叫雲端大腦
+        # 6. 呼叫雲端大腦
         try:
-            history = ctx.get("history", [])
-            
             # 呼叫 Cloud LLM
+            # user_input 是當前使用者的問題
             raw_response = await self.cloud_llm.generate(
                 user_input,
                 system_prompt=final_system_prompt
-                # history=history (視您的 client 實作是否支援 history 參數)
             )
             
-            # 取得文字內容
             response_text = raw_response.content if hasattr(raw_response, "content") else str(raw_response)
-            
-            # 直接回傳，不做 TTS 清洗
             return (response_text, "cloud_gen")
             
         except Exception as e:
