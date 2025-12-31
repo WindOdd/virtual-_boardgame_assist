@@ -49,6 +49,62 @@ async def shutdown_event():
     if discovery_service:
         discovery_service.stop()
         logger.info("✅ Discovery Service stopped")
+# --- [MODIFIED] API 1: 取得支援的遊戲列表 ---
+@app.get("/api/games")
+async def get_supported_games():
+    """
+    透過 DataManager 取得遊戲列表
+    """
+    try:
+        # 直接使用 Pipeline 內的 DataManager，避免重複讀取檔案
+        games_list = pipeline.data_manager.list_games()
+        
+        response_data = []
+        for game in games_list:
+            # 組合簡單的描述 (從 metadata 提取)
+            meta = game.metadata
+            desc_parts = []
+            if "players" in meta: desc_parts.append(f"{meta['players']} players")
+            if "playtime" in meta: desc_parts.append(meta['playtime'])
+            description = ", ".join(desc_parts) if desc_parts else "No description"
+
+            response_data.append({
+                "id": game.id,
+                "name": game.display_name, # Mapping: display_name -> name (Client 端用)
+                "description": description
+            })
+            
+        return {"games": response_data}
+        
+    except Exception as e:
+        logger.error(f"Error getting games list: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- [MODIFIED] API 2: 取得 Whisper 修正關鍵字 ---
+@app.get("/api/keywords/{game_id}")
+async def get_stt_keywords(game_id: str):
+    """
+    透過 DataManager 取得 STT 關鍵字
+    DataManager 會自動處理 enable_stt_injection 的判斷
+    """
+    try:
+        # DataManager 會回傳 List[str] 或 None (如果找不到或未啟用)
+        keywords = pipeline.data_manager.get_stt_keywords(game_id)
+        
+        if keywords is None:
+            # 找不到遊戲，或是該遊戲設定 enable_stt_injection: false
+            logger.info(f"Keywords not found or disabled for {game_id}")
+            keywords = []
+            
+        return {
+            "game_id": game_id,
+            "keywords": keywords,
+            # 提供給 Whisper 使用的 Prompt String (用逗號分隔)
+            "prompt_string": ", ".join(keywords)
+        }
+    except Exception as e:
+        logger.error(f"Error reading keywords: {e}")
+        return {"game_id": game_id, "keywords": [], "prompt_string": ""}
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
