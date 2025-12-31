@@ -51,7 +51,7 @@ async def shutdown_event():
         logger.info("✅ Discovery Service stopped")
 # --- [MODIFIED] API 1: 取得支援的遊戲列表 ---
 @app.get("/api/games")
-aasync def get_supported_games():
+async def get_supported_games():
     """
     透過 DataManager 取得遊戲列表
     """
