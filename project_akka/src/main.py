@@ -100,9 +100,9 @@ async def get_stt_keywords(game_id: str):
             
         return {
             "game_id": game_id,
-            "keywords": keywords,
+            "keywords": keywords
             # 提供給 Whisper 使用的 Prompt String (用逗號分隔)
-            "prompt_string": ", ".join(keywords)
+            #"prompt_string": ", ".join(keywords)
         }
     except Exception as e:
         logger.error(f"Error reading keywords: {e}")
