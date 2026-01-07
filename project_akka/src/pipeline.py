@@ -123,17 +123,29 @@ class Pipeline:
         # ============================================================
         context_str = ""
         if history:
-            # 篩選規則：只看 User 的發言，且該發言必須帶有 intent
-            recent_user_logs = [
+            # === DEBUG: 檢查 history 中的意圖標籤 ===
+            logger.info("🔍 [DEBUG] Context Extraction - 檢查 history:")
+            for i, msg in enumerate(history):
+                role = msg.get("role", "?")
+                intent = msg.get("intent", "N/A")
+                content = msg.get("content", "")[:30]  # 只顯示前 30 字
+                logger.info(f"   [{i}] role={role}, intent={intent}, content={content}...")
+            
+            # [修正] 篩選規則：從 assistant 的回應提取 intent（因為只有 server 回應才會加上 intent）
+            recent_assistant_logs = [
                 msg for msg in history 
-                if msg.get("role") == "user" and msg.get("intent")
+                if msg.get("role") == "assistant" and msg.get("intent")
             ]
             
-            if recent_user_logs:
+            logger.info(f"🔍 [DEBUG] 符合條件的 assistant logs 數量: {len(recent_assistant_logs)}")
+            
+            if recent_assistant_logs:
                 # 取出最後 2 次的意圖軌跡 (例如: RULES -> STORE_PRICING)
-                last_intents = [msg["intent"] for msg in recent_user_logs[-2:]]
+                last_intents = [msg["intent"] for msg in recent_assistant_logs[-2:]]
                 context_str = " -> ".join(last_intents)
                 logger.info(f"🕵️ Context Extracted from Request: {context_str}")
+            else:
+                logger.info("⚠️ [DEBUG] 沒有找到帶 intent 的 assistant log，context_str 為空")
 
         # --- Stage 1: Semantic Vector Routing (FastPath) ---
         semantic_intent, score = self.semantic_router.route(user_input)
