@@ -115,6 +115,15 @@ async def chat_endpoint(request: ChatRequest):
     """
     logger.info(f"📨 Request: {request.user_input} | Context: {request.game_context}")
     
+    # === DEBUG: 印出 Client 完整請求格式 ===
+    logger.info("=" * 50)
+    logger.info("🔍 [DEBUG] Client Request Format:")
+    logger.info(f"   user_input: {request.user_input}")
+    logger.info(f"   game_context: {request.game_context}")
+    logger.info(f"   history: {request.history}")
+    logger.info(f"   history length: {len(request.history) if request.history else 0}")
+    logger.info("=" * 50)
+    
     try:
         # 呼叫 Pipeline 處理
         result = await pipeline.process(

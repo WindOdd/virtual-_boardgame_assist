@@ -110,6 +110,14 @@ class Pipeline:
         if not user_input:
             return PipelineResult(response="...", source="empty")
 
+        # === DEBUG: Pipeline 入口資料 ===
+        logger.info("=" * 50)
+        logger.info("🔍 [DEBUG] Pipeline.process() 入口資料:")
+        logger.info(f"   user_input: {user_input}")
+        logger.info(f"   history: {history}")
+        logger.info(f"   game_context: {game_context}")
+        logger.info("=" * 50)
+
         # ============================================================
         # [NEW] Stage 0: Context Extraction (Stateless Logic)
         # ============================================================
@@ -165,6 +173,10 @@ class Pipeline:
             "history": history,
             "game_context": game_context
         }
+        # === DEBUG: 傳入 Dispatch 的 context_pack ===
+        logger.info("🔍 [DEBUG] context_pack 傳入 _dispatch:")
+        logger.info(f"   game_context: {context_pack.get('game_context')}")
+        logger.info(f"   history items: {len(context_pack.get('history') or [])}")
         # --- Stage 4: Dispatch ---
         response, source = await self._dispatch(
             router_result.intent, 
@@ -258,11 +270,22 @@ class Pipeline:
         game_id = game_ctx.get("game_id", "carcassonne") 
         history = ctx.get("history", []) # 取得歷史紀錄 List
         
+        # === DEBUG: _handle_rules_query 入口資料 ===
+        logger.info("=" * 50)
+        logger.info("🔍 [DEBUG] _handle_rules_query() 資料檢查:")
+        logger.info(f"   raw context: {ctx}")
+        logger.info(f"   game_ctx: {game_ctx}")
+        logger.info(f"   game_id (使用中): {game_id}")
+        logger.info(f"   history length: {len(history) if history else 0}")
+        logger.info("=" * 50)
+        
         # 2. 透過 DataManager 取得規則內容
         rule_content = self.data_manager.get_rules(game_id)
         if not rule_content:
             logger.warning(f"Rulebook not found for game_id: {game_id}")
             rule_content = "（系統提示：目前找不到此遊戲的詳細規則資料，請依據您的通用知識回答。）"
+        else:
+            logger.info(f"✅ [DEBUG] Rulebook loaded for {game_id}, length: {len(rule_content)} chars")
 
         # 3. 讀取 System Prompt Template
         # 假設 prompts_cloud.yaml 裡有 {INJECTED_RAG_CONTENT} 和 {history} 兩個佔位符
@@ -280,8 +303,10 @@ class Pipeline:
                 # 這裡簡單全留，標註角色即可
                 history_lines.append(f"{role}: {content}")
             history_str = "\n".join(history_lines)
+            logger.info(f"✅ [DEBUG] History formatted, lines: {len(history_lines)}")
         else:
             history_str = "(No previous conversation)"
+            logger.info("⚠️ [DEBUG] No history provided")
 
         # 5. 注入變數 (規則 + 歷史)
         # 注意：這裡使用 replace 簡單替換。建議確認 YAML 裡的佔位符名稱是否一致。
