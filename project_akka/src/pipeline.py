@@ -255,7 +255,7 @@ async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) ->
         # 1. 取得遊戲名稱 & 歷史紀錄
         ctx = context if isinstance(context, dict) else {}
         game_ctx = ctx.get("game_context", {}) or {}
-        game_id = game_ctx.get("game_name", "Carcassonne") 
+        game_id = game_ctx.get("game_id", "carcassonne") 
         history = ctx.get("history", []) # 取得歷史紀錄 List
         
         # 2. 透過 DataManager 取得規則內容
