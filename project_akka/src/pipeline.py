@@ -205,6 +205,14 @@ class Pipeline:
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="error")
             
         try:
+            # === DEBUG: Router LLM Prompt ===
+            logger.info("=" * 50)
+            logger.info("🧠 [DEBUG] Router LLM Prompt:")
+            logger.info(f"   [System Prompt] (length: {len(system_prompt)} chars):")
+            logger.info(f"   {system_prompt[:500]}..." if len(system_prompt) > 500 else f"   {system_prompt}")
+            logger.info(f"   [User Input]: {final_input}")
+            logger.info("=" * 50)
+            
             # 直接使用已經組好的 final_input
             response = await self.local_llm.generate_json(final_input, system_prompt)
             intent = response.get("intent", "UNKNOWN")
@@ -318,6 +326,17 @@ class Pipeline:
         
         # 6. 呼叫雲端大腦
         try:
+            # === DEBUG: Cloud LLM Prompt ===
+            logger.info("=" * 50)
+            logger.info("☁️ [DEBUG] Cloud LLM Prompt:")
+            logger.info(f"   [System Prompt] (length: {len(final_system_prompt)} chars)")
+            logger.info(f"   --- System Prompt 前 800 字 ---")
+            logger.info(final_system_prompt[:800] if len(final_system_prompt) > 800 else final_system_prompt)
+            logger.info(f"   --- System Prompt 後 500 字 ---")
+            logger.info(final_system_prompt[-500:] if len(final_system_prompt) > 500 else "(同上)")
+            logger.info(f"   [User Input]: {user_input}")
+            logger.info("=" * 50)
+            
             # 呼叫 Cloud LLM
             # user_input 是當前使用者的問題
             raw_response = await self.cloud_llm.generate(
