@@ -190,15 +190,18 @@ class Pipeline:
         logger.info(f"   game_context: {context_pack.get('game_context')}")
         logger.info(f"   history items: {len(context_pack.get('history') or [])}")
         # --- Stage 4: Dispatch ---
-        response, source = await self._dispatch(
+        response, source, override_intent = await self._dispatch(
             router_result.intent, 
             user_input, 
             context_pack
         )
         
+        # 如果有 override_intent（如 ERROR），使用它；否則用原本的 intent
+        final_intent = override_intent if override_intent else router_result.intent
+        
         return PipelineResult(
             response=response,
-            intent=router_result.intent,
+            intent=final_intent,
             confidence=router_result.confidence,
             source=source
         )
@@ -245,13 +248,18 @@ class Pipeline:
             pass
         return False
 
-    async def _dispatch(self, intent: str, user_input: str, context: Any = None) -> tuple[str, str]:
+    async def _dispatch(self, intent: str, user_input: str, context: Any = None) -> tuple[str, str, str]:
+        """
+        Returns: (response, source, override_intent)
+        override_intent: None 表示使用原本的 intent, "ERROR" 表示錯誤
+        """
         responses_map = self.store_info.get("responses", {})
         
         # 1. Static Responses
         if intent in responses_map:
             candidates = responses_map[intent]
-            if candidates: return (random.choice(candidates), "content_static")
+            if candidates: 
+                return (random.choice(candidates), "content_static", None)
         
         # 2. Logic Handlers
         logic_intents = self.intent_map.get("logic_intents", {})
@@ -264,18 +272,18 @@ class Pipeline:
                 task = logic_config.get("task", "casual_chat")
                 sys_prompt = self.local_prompts.get_task_config("casual_chat").get("system_prompt", "")
                 resp = await self.local_llm.generate(user_input, sys_prompt)
-                return (resp.content, "local_llm_gen")
+                return (resp.content, "local_llm_gen", None)
             elif handler in ["online_llm", "cloud_llm", "cloud_rag"]:
                 if self.cloud_llm:
                     return await self._handle_rules_query(user_input, context)
                 else:
-                    return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error")
+                    return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error", "ERROR")
             elif handler == "reject":
-                return (logic_config.get("response", "抱歉"), "reject")
+                return (logic_config.get("response", "抱歉"), "reject", None)
 
         # 3. Fallback
         fallback = self.store_info.get("responses", {}).get("UNKNOWN_FALLBACK", ["抱歉？"])
-        return (random.choice(fallback), "fallback")
+        return (random.choice(fallback), "fallback", None)
     # src/pipeline.py -> class Pipeline
 
     # [新增] 整個函式
@@ -379,11 +387,11 @@ class Pipeline:
             )
             
             response_text = raw_response.content if hasattr(raw_response, "content") else str(raw_response)
-            return (response_text, "cloud_gen")
+            return (response_text, "cloud_gen", None)  # None = 使用原本 intent
             
         except Exception as e:
             logger.error(f"Cloud Handling Error: {e}")
-            return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error")
+            return ("抱歉，雲端大腦連線有點問題，請稍後再試。", "error", "ERROR")  # ERROR intent
 
 def create_pipeline(config_dir: Optional[Path] = None) -> Pipeline:
     return Pipeline(config_dir=config_dir)
