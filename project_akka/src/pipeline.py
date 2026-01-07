@@ -246,8 +246,8 @@ class Pipeline:
         return (random.choice(fallback), "fallback")
     # src/pipeline.py -> class Pipeline
 
-# [新增] 整個函式
-async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
+    # [新增] 整個函式
+    async def _handle_rules_query(self, user_input: str, context: Dict[str, Any]) -> tuple[str, str]:
         """
         專門處理 RULES 意圖的邏輯函式
         修正重點：將 history 格式化並注入 System Prompt
