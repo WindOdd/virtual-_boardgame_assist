@@ -79,7 +79,9 @@ class DataManager:
                 metadata=game_data.get('metadata', {})
             )
             self._games[normalized_id] = game
+            print(f"[DEBUG] DataManager: Loaded game '{normalized_id}' with rule_path: {game.rule_path}")
         
+        print(f"[DEBUG] DataManager: Total games loaded: {list(self._games.keys())}")
         self._loaded = True
     
     def get_game(self, game_id: str) -> Optional[GameEntry]:
@@ -87,7 +89,10 @@ class DataManager:
         if not self._loaded:
             self.load_registry()
         # Normalize to lowercase for lookup
-        return self._games.get(game_id.lower())
+        result = self._games.get(game_id.lower())
+        print(f"[DEBUG] DataManager.get_game('{game_id}') -> {result}")
+        print(f"[DEBUG] Available games: {list(self._games.keys())}")
+        return result
     
     def list_games(self) -> List[GameEntry]:
         """List all registered games."""
