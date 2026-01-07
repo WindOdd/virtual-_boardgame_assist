@@ -68,23 +68,26 @@ class DataManager:
         
         self._games = {}
         for game_data in data.get('games', []):
+            # Normalize game_id to lowercase
+            normalized_id = game_data['id'].lower()
             game = GameEntry(
-                id=game_data['id'],
+                id=normalized_id,
                 display_name=game_data['display_name'],
                 rule_path=game_data['rule_path'],
                 keywords_path=game_data['keywords_path'],
                 enable_stt_injection=game_data.get('enable_stt_injection', True),
                 metadata=game_data.get('metadata', {})
             )
-            self._games[game.id] = game
+            self._games[normalized_id] = game
         
         self._loaded = True
     
     def get_game(self, game_id: str) -> Optional[GameEntry]:
-        """Get a game entry by ID."""
+        """Get a game entry by ID (case-insensitive)."""
         if not self._loaded:
             self.load_registry()
-        return self._games.get(game_id)
+        # Normalize to lowercase for lookup
+        return self._games.get(game_id.lower())
     
     def list_games(self) -> List[GameEntry]:
         """List all registered games."""
