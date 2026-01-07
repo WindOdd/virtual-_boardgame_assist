@@ -152,10 +152,11 @@ class Pipeline:
     
         if semantic_intent:
             logger.info(f"⚡ FastPath Hit: {semantic_intent} (Score: {score:.4f})")
-            response, source = await self._dispatch(semantic_intent, user_input, None)
+            response, source, override_intent = await self._dispatch(semantic_intent, user_input, None)
+            final_intent = override_intent if override_intent else semantic_intent
             return PipelineResult(
                 response=response,
-                intent=semantic_intent,
+                intent=final_intent,
                 confidence=float(score),
                 source=f"fastpath_{source}"
             )
