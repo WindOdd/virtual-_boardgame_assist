@@ -112,9 +112,19 @@ class DataManager:
         
         if game._rules_content is None:
             rule_path = self.base_path / game.rule_path
+            # === DEBUG: 檢查路徑 ===
+            print(f"[DEBUG] get_rules() 路徑檢查:")
+            print(f"   base_path: {self.base_path}")
+            print(f"   game.rule_path: {game.rule_path}")
+            print(f"   full rule_path: {rule_path}")
+            print(f"   rule_path.exists(): {rule_path.exists()}")
+            
             if rule_path.exists():
                 with open(rule_path, 'r', encoding='utf-8') as f:
                     game._rules_content = f.read()
+                print(f"[DEBUG] ✅ Rules loaded, length: {len(game._rules_content)} chars")
+            else:
+                print(f"[DEBUG] ❌ Rules file NOT found at: {rule_path}")
         
         return game._rules_content
     
