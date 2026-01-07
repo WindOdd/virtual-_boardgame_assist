@@ -312,18 +312,40 @@ class Pipeline:
         task_config = self.cloud_prompts.get_task_config("rules_explainer")
         system_template = task_config.get("system_prompt", "")
         
-        # 4. [關鍵修正] 格式化 History
+        # 4. [優化] 格式化 History - 只保留 RULES 相關的對話
         history_str = ""
         if history:
-            history_lines = []
-            for msg in history:
-                role = msg.get("role", "unknown")
-                content = msg.get("content", "")
-                # 過濾掉太長的歷史紀錄以節省 Token，或只保留 RULES 相關的
-                # 這裡簡單全留，標註角色即可
-                history_lines.append(f"{role}: {content}")
-            history_str = "\n".join(history_lines)
-            logger.info(f"✅ [DEBUG] History formatted, lines: {len(history_lines)}")
+            # 過濾：只保留 intent 為 RULES 或 None 的訊息
+            # None 的情況是 user 訊息（沒有 intent），但如果前後有 RULES 則保留
+            filtered_history = []
+            
+            for i, msg in enumerate(history):
+                intent = msg.get("intent")
+                role = msg.get("role")
+                
+                # 保留條件：
+                # 1. assistant 且 intent 是 RULES
+                # 2. user 訊息（需要看下一個 assistant 的 intent 是否為 RULES）
+                if role == "assistant" and intent == "RULES":
+                    # 把前一則 user 訊息也加入（如果還沒加入）
+                    if i > 0 and history[i-1].get("role") == "user":
+                        prev_msg = history[i-1]
+                        if prev_msg not in filtered_history:
+                            filtered_history.append(prev_msg)
+                    filtered_history.append(msg)
+            
+            # 格式化
+            if filtered_history:
+                history_lines = []
+                for msg in filtered_history:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    history_lines.append(f"{role}: {content}")
+                history_str = "\n".join(history_lines)
+                logger.info(f"✅ [DEBUG] History filtered (RULES only): {len(filtered_history)} msgs from {len(history)} total")
+            else:
+                history_str = "(No RULES-related conversation)"
+                logger.info("⚠️ [DEBUG] No RULES history found, using empty context")
         else:
             history_str = "(No previous conversation)"
             logger.info("⚠️ [DEBUG] No history provided")
