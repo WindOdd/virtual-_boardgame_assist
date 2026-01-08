@@ -17,7 +17,7 @@ model:
     provider: "ollama"
     description: "Local LLM running on Jetson Orin Nano"
   cloud:
-    name: "gemini-2.5-flash"
+    name: "gemini-3-flash-preview"
     provider: "google"
     description: "Cloud LLM for complex reasoning tasks"
   embedding:

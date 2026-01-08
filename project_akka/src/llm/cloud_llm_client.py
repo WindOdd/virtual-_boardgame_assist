@@ -48,7 +48,11 @@ class GeminiClient(BaseLLMClient):
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                    temperature=0.7
+                    temperature=0.7,
+                    thinking_config=types.ThinkingConfig(
+        include_thoughts=False, # Optional: Ensures thoughts are not included in output even if generated
+        thinking_budget=0,     # Completely disable thinking and token cost
+    )
                 )
             )
             
