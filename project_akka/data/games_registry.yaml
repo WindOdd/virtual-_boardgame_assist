@@ -4,8 +4,8 @@
 games:
   - id: "carcassonne"
     display_name: "卡卡頌"
-    rule_path: "data/rules/Carcassonne.md"
-    keywords_path: "data/stt_keywords/Carcassonne.txt"
+    rule_path: "data/rules/carcassonne.md"
+    keywords_path: "data/stt_keywords/carcassonne.txt"
     enable_stt_injection: true
     metadata:
       players: "2-5"
@@ -14,11 +14,11 @@ games:
       category: "tile-placement"
       enable_stt_injection: true
       allowlist_keywords: []
-      
+
   - id: "splendor"
     display_name: "璀璨寶石"
-    rule_path: "data/rules/Splendor.md"
-    keywords_path: "data/stt_keywords/Splendor.txt"
+    rule_path: "data/rules/splendor.md"
+    keywords_path: "data/stt_keywords/splendor.txt"
     enable_stt_injection: true
     metadata:
       players: "2-4"
