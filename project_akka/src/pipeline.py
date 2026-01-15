@@ -121,6 +121,10 @@ class Pipeline:
         # ============================================================
         # [NEW] Stage 0: Context Extraction (Stateless Logic)
         # ============================================================
+        # Extract recent context with queries (INTENT: query format)
+        recent_context = self._extract_recent_context(history, window=3, max_length=80)
+
+        # Legacy format for backward compatibility (intent chain)
         context_str = ""
         if history:
             # === DEBUG: 檢查 history 中的意圖標籤 ===
@@ -130,22 +134,28 @@ class Pipeline:
                 intent = msg.get("intent", "N/A")
                 content = msg.get("content", "")[:30]  # 只顯示前 30 字
                 logger.info(f"   [{i}] role={role}, intent={intent}, content={content}...")
-            
+
             # [修正] 篩選規則：從 assistant 的回應提取 intent（因為只有 server 回應才會加上 intent）
             recent_assistant_logs = [
-                msg for msg in history 
+                msg for msg in history
                 if msg.get("role") == "assistant" and msg.get("intent")
             ]
-            
+
             logger.info(f"🔍 [DEBUG] 符合條件的 assistant logs 數量: {len(recent_assistant_logs)}")
-            
+
             if recent_assistant_logs:
                 # 取出最後 2 次的意圖軌跡 (例如: RULES -> STORE_PRICING)
                 last_intents = [msg["intent"] for msg in recent_assistant_logs[-2:]]
                 context_str = " -> ".join(last_intents)
-                logger.info(f"🕵️ Context Extracted from Request: {context_str}")
+                logger.info(f"🕵️ Context Extracted (legacy): {context_str}")
             else:
                 logger.info("⚠️ [DEBUG] 沒有找到帶 intent 的 assistant log，context_str 為空")
+
+        # Log new format
+        if recent_context:
+            logger.info("🔍 [DEBUG] Recent Context (new format):")
+            for ctx in recent_context:
+                logger.info(f"   - {ctx}")
 
         # --- Stage 1: Semantic Vector Routing (FastPath) ---
         semantic_intent, score = self.semantic_router.route(user_input)
@@ -166,12 +176,23 @@ class Pipeline:
             return PipelineResult(response="系統維護中...", source="error")
 
         logger.info("🐢 FastPath Miss. Engaging LLM Router...")
-    
+
         # [MODIFY] 將 Context 注入 Prompt
-        if context_str:
-            final_input = f"[Context: {context_str}] User Input: {user_input}"
+        # Build context string from recent_context (new format)
+        if recent_context:
+            context_lines = "\n".join([f"- {ctx}" for ctx in recent_context])
+            context_block = f"[Recent Context]\n{context_lines}\n\n"
         else:
-            final_input = user_input
+            context_block = ""
+
+        # Legacy context format (for backward compatibility)
+        if context_str and not recent_context:
+            legacy_context = f"[Context: {context_str}]\n\n"
+        else:
+            legacy_context = ""
+
+        # Construct final input
+        final_input = f"{context_block}{legacy_context}[User Input] {user_input}"
 
         # 傳送 final_input 給 Router
         router_result = await self._route_with_llm(final_input, self.local_llm)
@@ -237,6 +258,49 @@ class Pipeline:
         except Exception as e:
             logger.error(f"Router LLM Error: {e}")
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="fallback")
+
+    def _extract_recent_context(
+        self,
+        history: Optional[List[Dict[str, Any]]],
+        window: int = 3,
+        max_length: int = 80
+    ) -> List[str]:
+        """
+        Extract recent conversation context in format: "INTENT: user_query"
+
+        Args:
+            history: Full conversation history
+            window: Number of recent turns to extract (default: 3)
+            max_length: Maximum length per query (default: 80 chars)
+
+        Returns:
+            List of formatted context strings, e.g.:
+            ["STORE_SALES: 你們有賣卡坦島嗎", "RULES: 要怎麼買發展卡"]
+        """
+        if not history:
+            return []
+
+        context = []
+
+        # Iterate through history to find assistant messages with intent
+        for i, msg in enumerate(history):
+            if msg.get("role") == "assistant" and msg.get("intent"):
+                # Find the corresponding user query (previous message)
+                if i > 0 and history[i-1].get("role") == "user":
+                    user_query = history[i-1].get("content", "").strip()
+                    intent = msg.get("intent")
+
+                    # Truncate long queries
+                    if len(user_query) > max_length:
+                        user_query_short = user_query[:max_length] + "..."
+                    else:
+                        user_query_short = user_query
+
+                    # Format: "INTENT: query"
+                    context.append(f"{intent}: {user_query_short}")
+
+        # Return most recent N entries
+        return context[-window:]
 
     def _check_allowlist(self, user_input: str) -> bool:
         try:
