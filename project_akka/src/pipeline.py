@@ -157,6 +157,21 @@ class Pipeline:
             for ctx in recent_context:
                 logger.info(f"   - {ctx}")
 
+        # [NEW] Get top 3 semantic scores for LLM Router
+        top_matches = self.semantic_router.get_top_matches(user_input, top_k=3)
+        if top_matches:
+            logger.info("🔍 [DEBUG] Top 3 Semantic Scores:")
+            for intent, score in top_matches:
+                logger.info(f"   - {intent}: {score:.4f}")
+
+        # [NEW] Load STT keywords if game_id is provided
+        stt_keywords = []
+        if game_context and game_context.get("game_id"):
+            game_id = game_context.get("game_id")
+            stt_keywords = self._load_stt_keywords(game_id)
+            if stt_keywords:
+                logger.info(f"🔍 [DEBUG] STT Keywords loaded for {game_id}: {len(stt_keywords)} keywords")
+
         # --- Stage 1: Semantic Vector Routing (FastPath) ---
         semantic_intent, score = self.semantic_router.route(user_input)
     
@@ -178,12 +193,26 @@ class Pipeline:
         logger.info("🐢 FastPath Miss. Engaging LLM Router...")
 
         # [MODIFY] 將 Context 注入 Prompt
+        # Build semantic scores block
+        if top_matches:
+            scores_lines = "\n".join([f"- {intent}: {score:.2f}" for intent, score in top_matches])
+            scores_block = f"[Semantic Scores]\n{scores_lines}\n\n"
+        else:
+            scores_block = ""
+
         # Build context string from recent_context (new format)
         if recent_context:
             context_lines = "\n".join([f"- {ctx}" for ctx in recent_context])
             context_block = f"[Recent Context]\n{context_lines}\n\n"
         else:
             context_block = ""
+
+        # Build STT keywords block
+        if stt_keywords:
+            keywords_str = ", ".join(stt_keywords[:20])  # Limit to first 20 keywords
+            keywords_block = f"[Game Keywords]\n{keywords_str}\n\n"
+        else:
+            keywords_block = ""
 
         # Legacy context format (for backward compatibility)
         if context_str and not recent_context:
@@ -192,7 +221,7 @@ class Pipeline:
             legacy_context = ""
 
         # Construct final input
-        final_input = f"{context_block}{legacy_context}[User Input] {user_input}"
+        final_input = f"{scores_block}{context_block}{keywords_block}{legacy_context}[User Input] {user_input}"
 
         # 傳送 final_input 給 Router
         router_result = await self._route_with_llm(final_input, self.local_llm)
@@ -258,6 +287,35 @@ class Pipeline:
         except Exception as e:
             logger.error(f"Router LLM Error: {e}")
             return RouterResult(intent="UNKNOWN", confidence=0.0, source="fallback")
+
+    def _load_stt_keywords(self, game_id: str) -> List[str]:
+        """
+        Load STT keywords for a specific game.
+
+        Args:
+            game_id: Game identifier (e.g., "Carcassonne", "Splendor")
+
+        Returns:
+            List of STT keywords for the game
+        """
+        try:
+            # Construct file path
+            keywords_file = Path(__file__).parent.parent / "data" / "stt_keywords" / f"{game_id}.txt"
+
+            if not keywords_file.exists():
+                logger.warning(f"STT keywords file not found: {keywords_file}")
+                return []
+
+            # Read keywords (one per line)
+            with open(keywords_file, 'r', encoding='utf-8') as f:
+                keywords = [line.strip() for line in f if line.strip()]
+
+            logger.info(f"✅ Loaded {len(keywords)} STT keywords for {game_id}")
+            return keywords
+
+        except Exception as e:
+            logger.error(f"Failed to load STT keywords for {game_id}: {e}")
+            return []
 
     def _extract_recent_context(
         self,

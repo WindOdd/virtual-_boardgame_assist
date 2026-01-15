@@ -84,29 +84,67 @@ class SemanticRouter:
         try:
             # [CRITICAL] 使用者輸入也要加上 "query: "
             prefixed_input = f"query: {user_input}"
-            
+
             # 1. Encode user input
             user_embedding = self.model.encode(prefixed_input, convert_to_tensor=True)
-            
+
             best_score = 0.0
             best_intent = None
-            
+
             # 2. Compare against all anchors
             for intent, anchor_embeddings in self.index.items():
                 # util.cos_sim 回傳相似度矩陣
                 scores = util.cos_sim(user_embedding, anchor_embeddings)[0]
                 max_score = float(scores.max()) # 取最像的那句
-                
+
                 if max_score > best_score:
                     best_score = max_score
                     best_intent = intent
-            
+
             # 3. Threshold Check
             if best_score >= self.threshold:
                 return best_intent, best_score
-            
+
             return None, best_score
 
         except Exception as e:
             logger.error(f"Routing error: {e}")
             return None, 0.0
+
+    def get_top_matches(self, user_input: str, top_k: int = 3) -> List[Tuple[str, float]]:
+        """
+        Get top K intent matches with scores
+
+        Args:
+            user_input: User query
+            top_k: Number of top matches to return (default: 3)
+
+        Returns:
+            List of (intent, score) tuples sorted by score descending
+            Example: [("RULES", 0.89), ("STORE_SALES", 0.72), ("STORE_WIFI", 0.65)]
+        """
+        if not self.model or not self.index:
+            return []
+
+        try:
+            # [CRITICAL] 使用者輸入也要加上 "query: "
+            prefixed_input = f"query: {user_input}"
+
+            # 1. Encode user input
+            user_embedding = self.model.encode(prefixed_input, convert_to_tensor=True)
+
+            # 2. Collect all intent scores
+            intent_scores = []
+            for intent, anchor_embeddings in self.index.items():
+                scores = util.cos_sim(user_embedding, anchor_embeddings)[0]
+                max_score = float(scores.max())
+                intent_scores.append((intent, max_score))
+
+            # 3. Sort by score descending and take top K
+            intent_scores.sort(key=lambda x: x[1], reverse=True)
+
+            return intent_scores[:top_k]
+
+        except Exception as e:
+            logger.error(f"Error getting top matches: {e}")
+            return []
