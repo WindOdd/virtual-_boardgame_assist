@@ -9,28 +9,37 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "project_akka"))
 
 def test_stt_keywords_loading():
-    """Test STT keywords file loading"""
+    """Test STT keywords file loading with case-insensitive game_id"""
     print("=" * 60)
-    print("Test 1: STT Keywords File Loading")
+    print("Test 1: STT Keywords Loading (with data_manager)")
     print("=" * 60)
 
-    # Manually load keywords file
-    keywords_file = Path(__file__).parent / "project_akka" / "data" / "stt_keywords" / "Carcassonne.txt"
+    from src.pipeline import Pipeline
 
-    if not keywords_file.exists():
-        print(f"❌ Keywords file not found: {keywords_file}")
-        return False
+    pipeline = Pipeline()
 
-    with open(keywords_file, 'r', encoding='utf-8') as f:
-        keywords = [line.strip() for line in f if line.strip()]
+    # Test 1a: lowercase game_id (from client)
+    print("\n--- Test lowercase game_id ---")
+    keywords_lower = pipeline._load_stt_keywords("carcassonne")
+    print(f"Loaded {len(keywords_lower)} keywords for 'carcassonne'")
+    assert len(keywords_lower) > 0, "Should load keywords for lowercase game_id"
+    assert "卡卡頌" in keywords_lower, "Should contain '卡卡頌'"
+    print("✅ Lowercase game_id works")
 
-    print(f"\n✅ Loaded {len(keywords)} keywords from {keywords_file.name}")
-    print(f"Sample keywords: {keywords[:8]}")
+    # Test 1b: Capitalized game_id
+    print("\n--- Test capitalized game_id ---")
+    keywords_cap = pipeline._load_stt_keywords("Carcassonne")
+    print(f"Loaded {len(keywords_cap)} keywords for 'Carcassonne'")
+    assert len(keywords_cap) > 0, "Should load keywords for capitalized game_id"
+    print("✅ Capitalized game_id works")
 
-    # Verify
-    assert len(keywords) > 0, "Should load keywords"
-    assert "卡卡頌" in keywords, "Should contain '卡卡頌'"
+    # Test 1c: Non-existent game
+    print("\n--- Test non-existent game ---")
+    keywords_none = pipeline._load_stt_keywords("NonExistent")
+    assert len(keywords_none) == 0, "Should return empty list for non-existent game"
+    print("✅ Non-existent game returns empty list")
 
+    print(f"\nSample keywords: {keywords_lower[:8]}")
     print("\n✅ Test 1 passed!")
     return True
 

@@ -293,25 +293,21 @@ class Pipeline:
         Load STT keywords for a specific game.
 
         Args:
-            game_id: Game identifier (e.g., "Carcassonne", "Splendor")
+            game_id: Game identifier (case-insensitive, e.g., "carcassonne", "Carcassonne")
 
         Returns:
             List of STT keywords for the game
         """
         try:
-            # Construct file path
-            keywords_file = Path(__file__).parent.parent / "data" / "stt_keywords" / f"{game_id}.txt"
+            # Use data_manager to handle game_id lookup and path resolution
+            keywords = self.data_manager.get_stt_keywords(game_id)
 
-            if not keywords_file.exists():
-                logger.warning(f"STT keywords file not found: {keywords_file}")
+            if keywords:
+                logger.info(f"✅ Loaded {len(keywords)} STT keywords for {game_id}")
+                return keywords
+            else:
+                logger.warning(f"No STT keywords found for game_id: {game_id}")
                 return []
-
-            # Read keywords (one per line)
-            with open(keywords_file, 'r', encoding='utf-8') as f:
-                keywords = [line.strip() for line in f if line.strip()]
-
-            logger.info(f"✅ Loaded {len(keywords)} STT keywords for {game_id}")
-            return keywords
 
         except Exception as e:
             logger.error(f"Failed to load STT keywords for {game_id}: {e}")
