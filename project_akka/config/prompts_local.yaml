@@ -57,11 +57,20 @@ router:
        - DEFINITION: Questions about store location, phone, or **game sales/stock availability**.
        - NOTE: If user asks "Do you sell [Game Name]?", classify as STORE_INTRO so we can provide a standard response.
 
-    9. CASUAL_CHAT:
-       - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).
-       - CONSTRAINT: If the input looks like a game question, classify as RULES.
+    9. STORE_GUIDE:
+       - DEFINITION: **General store inquiries** that don't clearly fit into specific categories above.
+       - USE CASES:
+         * Questions mixing multiple topics (e.g., "How much is the food?")
+         * Vague store-related questions you cannot confidently categorize
+         * When unsure between STORE_PRICING, STORE_FOOD, or STORE_INTRO
+       - STRATEGY: Use this as a **safe fallback** for store-related questions to guide users to ask staff.
+       - NOTE: If you CAN clearly identify WIFI/TOILET/HOURS, use those specific intents instead.
 
-    10. UNKNOWN:
+    10. CASUAL_CHAT:
+        - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).
+        - CONSTRAINT: If the input looks like a game question, classify as RULES.
+
+    11. UNKNOWN:
         - DEFINITION: Nonsense or Out-of-Scope questions (Weather, Stocks, Cars).
 
     [OUTPUT FORMAT]
