@@ -19,14 +19,14 @@ logic_intents:
 # 注意：這裡對應的是 store_info.yaml 的第一層 Key
 content_map:
   # 精準分類 (Layer 1 優先命中，Layer 2 也能判斷)
-  STORE_WIFI:      ["STORE_WIFI"]
-  STORE_TOILET:    ["STORE_TOILET"]
-  STORE_PRICING:   ["STORE_PRICING"]
-  STORE_HOURS:     ["STORE_HOURS"]
-  STORE_FOOD:      ["STORE_FOOD"]
-  STORE_INTRO:     ["STORE_INTRO"]
-  STORE_LOCATION:  ["STORE_ADDRESS"]
-  STORE_PHONE:     ["STORE_PHONE"]
+  STORE_WIFI:       ["STORE_WIFI"]
+  STORE_TOILET:     ["STORE_TOILET"]
+  STORE_ENTRY_FEE:  ["STORE_ENTRY_FEE"]
+  STORE_HOURS:      ["STORE_HOURS"]
+  STORE_FOOD:       ["STORE_FOOD"]
+  STORE_INTRO:      ["STORE_INTRO"]
+  STORE_LOCATION:   ["STORE_ADDRESS"]
+  STORE_PHONE:      ["STORE_PHONE"]
 
   # [NEW] 通用引導分類 (Layer 2 兜底使用)
   # 當 4B 無法明確判斷，或問題涉及價格/餐點/商品等需櫃台確認的內容

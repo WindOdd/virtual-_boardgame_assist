@@ -47,8 +47,9 @@ router:
     5. STORE_TOILET:
        - DEFINITION: Questions about Restroom location.
 
-    6. STORE_PRICING:
-       - DEFINITION: Questions about Fees, Rates, or Day Passes.
+    6. STORE_ENTRY_FEE:
+       - DEFINITION: Questions about Entry Fees, Hourly Rates, or Day Passes.
+       - NOTE: This is specifically about the fee to play at the store, NOT food/product prices.
 
     7. STORE_HOURS:
        - DEFINITION: Questions about Opening/Closing time.
@@ -62,9 +63,9 @@ router:
        - USE CASES:
          * Questions mixing multiple topics (e.g., "How much is the food?")
          * Vague store-related questions you cannot confidently categorize
-         * When unsure between STORE_PRICING, STORE_FOOD, or STORE_INTRO
+         * When unsure between STORE_ENTRY_FEE, STORE_FOOD, or STORE_INTRO
        - STRATEGY: Use this as a **safe fallback** for store-related questions to guide users to ask staff.
-       - NOTE: If you CAN clearly identify WIFI/TOILET/HOURS, use those specific intents instead.
+       - NOTE: If you CAN clearly identify WIFI/TOILET/HOURS/ENTRY_FEE, use those specific intents instead.
 
     10. CASUAL_CHAT:
         - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).

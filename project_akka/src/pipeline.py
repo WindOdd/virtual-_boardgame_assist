@@ -144,7 +144,7 @@ class Pipeline:
             logger.info(f"🔍 [DEBUG] 符合條件的 assistant logs 數量: {len(recent_assistant_logs)}")
 
             if recent_assistant_logs:
-                # 取出最後 2 次的意圖軌跡 (例如: RULES -> STORE_PRICING)
+                # 取出最後 2 次的意圖軌跡 (例如: RULES -> STORE_ENTRY_FEE)
                 last_intents = [msg["intent"] for msg in recent_assistant_logs[-2:]]
                 context_str = " -> ".join(last_intents)
                 logger.info(f"🕵️ Context Extracted (legacy): {context_str}")
@@ -535,11 +535,11 @@ if __name__ == "__main__":
     print("\n--- Test 3: Context Injection (Simulate Client History) ---")
     # 情境：上一輪問了價格，這一輪只問「那假日呢？」
     mock_history = [
-        {"role": "user", "content": "平日多少錢？", "intent": "STORE_PRICING"},
+        {"role": "user", "content": "平日多少錢？", "intent": "STORE_ENTRY_FEE"},
         {"role": "assistant", "content": "平日 60 元..."}
     ]
     # 我們期望這句模糊的「那假日呢」能因為 History 而被識別正確
-    print(f"Input: 那假日呢？ (with context: STORE_PRICING)")
+    print(f"Input: 那假日呢？ (with context: STORE_ENTRY_FEE)")
     print(asyncio.run(p.process("那假日呢？", history=mock_history)))
     
     print("\n=============================")
