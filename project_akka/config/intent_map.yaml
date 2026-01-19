@@ -36,7 +36,6 @@ content_map:
   # ====================================
   STORE_FOOD:       ["STORE_FOOD"]         # Layer 2 映射: STORE_GUIDE
   STORE_INTRO:      ["STORE_INTRO"]        # 販售詢問（避免幻覺）
-  STORE_LOCATION:   ["STORE_ADDRESS"]      # 地址（對應 STORE_ADDRESS）
   GREETING:         ["GREETING"]           # Layer 2 映射: CASUAL_CHAT
   IDENTITY:         ["IDENTITY"]           # Layer 2 映射: CASUAL_CHAT
 
