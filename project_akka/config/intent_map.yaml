@@ -6,11 +6,11 @@ logic_intents:
   SENSITIVE:
     handler: "reject"          # 直接拒絕，不進 LLM
     response: "抱歉，我們專注在桌遊話題上呦！有什麼遊戲問題可以問我～"
-  
+
   RULES:
     handler: "cloud_rag"       # 呼叫 Gemini + RAG
     task: "explain_rules"
-  
+
   CASUAL_CHAT:
     handler: "local_llm"       # 呼叫 Qwen Persona
     task: "casual_chat"
@@ -18,19 +18,27 @@ logic_intents:
 # B. 內容意圖 (Content Intents) - 直接查 store_info.yaml
 # 注意：這裡對應的是 store_info.yaml 的第一層 Key
 content_map:
-  # Layer 2 (4B LLM) 會判斷的 10 個意圖
+  # ====================================
+  # Layer 2 (4B LLM) 會判斷的 11 個意圖
+  # ====================================
   STORE_WIFI:       ["STORE_WIFI"]
   STORE_TOILET:     ["STORE_TOILET"]
   STORE_ENTRY_FEE:  ["STORE_ENTRY_FEE"]
   STORE_HOURS:      ["STORE_HOURS"]
-  STORE_INTRO:      ["STORE_INTRO"]       # 合併：食物、地址、電話、商品
-  STORE_GUIDE:      ["STORE_GUIDE"]
+  STORE_ADDRESS:    ["STORE_ADDRESS"]
+  STORE_PHONE:      ["STORE_PHONE"]
+  STORE_GUIDE:      ["STORE_GUIDE"]        # 餐飲、商品、店面身份
   UNKNOWN:          ["UNKNOWN_FALLBACK"]
 
-  # Layer 1 (E5 Embedding) 細分類（僅 FastPath 使用）
-  STORE_FOOD:       ["STORE_FOOD"]        # Layer 1 精準命中
-  STORE_LOCATION:   ["STORE_ADDRESS"]     # Layer 1 精準命中
-  STORE_PHONE:      ["STORE_PHONE"]       # Layer 1 精準命中
+  # ====================================
+  # Layer 1 (E5 Embedding) 專屬細分類
+  # 僅用於 FastPath (>0.9)
+  # ====================================
+  STORE_FOOD:       ["STORE_FOOD"]         # Layer 2 映射: STORE_GUIDE
+  STORE_INTRO:      ["STORE_INTRO"]        # 販售詢問（避免幻覺）
+  STORE_LOCATION:   ["STORE_ADDRESS"]      # 地址（對應 STORE_ADDRESS）
+  GREETING:         ["GREETING"]           # Layer 2 映射: CASUAL_CHAT
+  IDENTITY:         ["IDENTITY"]           # Layer 2 映射: CASUAL_CHAT
 
 # C. 兜底策略
 fallback:
