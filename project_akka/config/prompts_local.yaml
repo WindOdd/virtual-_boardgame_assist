@@ -109,32 +109,6 @@ router:
     那這個呢？ (What about this one?)
     >>> Intent: RULES
 
-    Example 10 (Generic Game Concept - Rules):
-    [Game Keywords]
-    卡卡頌, 米寶, 板塊, 騎士, 農夫
-    [User Input]
-    基本規則有哪 (What are the basic rules?)
-    >>> Intent: RULES
-
-    Example 11 (Generic Game Concept - How to Play):
-    [Game Keywords]
-    卡卡頌, 米寶, 板塊
-    [User Input]
-    怎麼玩 (How to play?)
-    >>> Intent: RULES
-
-    Example 12 (Generic Game Concept - Tutorial):
-    [Game Keywords]
-    Splendor, Gem, Noble
-    [User Input]
-    教我玩這個遊戲 (Teach me how to play this game)
-    >>> Intent: RULES
-
-    Example 13 (Generic Game Concept - Setup):
-    [User Input]
-    遊戲設置是什麼 (What is the game setup?)
-    >>> Intent: RULES
-
 # ==================================================
 # 2. 閒聊人設 (Persona System Prompt)
 # ==================================================
