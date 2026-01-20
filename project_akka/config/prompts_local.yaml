@@ -47,7 +47,7 @@ router:
     5. STORE_TOILET:
        - DEFINITION: Questions about Restroom location.
 
-    6. STORE_PRICING:
+    6. STORE_FEE:
        - DEFINITION: Questions about Fees, Rates, or Day Passes.
 
     7. STORE_HOURS:
