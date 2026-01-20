@@ -35,8 +35,8 @@ router:
 
     2. RULES:
        - DEFINITION: **CORE INTENT**. Questions about how to play, mechanics, components, scoring, or setup.
-       - KEYWORDS: 怎麼玩, 規則, 算分, 贏, 起始, 手牌, 板塊, 米寶, 骰子, 卡牌.
-       - NOTE: If the user mentions a specific game term (e.g., "Farmer", "Meeple", "Werewolf") without context, classify as RULES.
+       - KEYWORDS: 怎麼玩, 規則, 算分, 贏, 起始, 手牌, 板塊, 米寶, 骰子, 卡牌, 效果.
+       - NOTE: If the user mentions a specific game term without buying intent, classify as RULES.
 
     3. STORE_FOOD:
        - DEFINITION: Questions about food, drinks, snacks, or the menu.
@@ -48,20 +48,30 @@ router:
        - DEFINITION: Questions about Restroom location.
 
     6. STORE_FEE:
-       - DEFINITION: Questions about Fees, Rates, or Day Passes.
+       - DEFINITION: Questions about **Entry Fees, Hourly Rates, or Day Passes** (場地使用費).
+       - NEGATIVE_CONSTRAINT: If user asks "How much is [Game Name]?" (商品價格), classify as STORE_INTRO instead.
 
     7. STORE_HOURS:
        - DEFINITION: Questions about Opening/Closing time.
 
-    8. STORE_INTRO:
-       - DEFINITION: Questions about store location, phone, or **game sales/stock availability**.
-       - NOTE: If user asks "Do you sell [Game Name]?", classify as STORE_INTRO so we can provide a standard response.
+    8. STORE_LOCATION:
+       - DEFINITION: Questions about **store address, location, MRT station, or directions**.
+       - KEYWORDS: 地址, 哪裡, 怎麼走, 位置, 在哪, 捷運.
 
-    9. CASUAL_CHAT:
-       - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).
-       - CONSTRAINT: If the input looks like a game question, classify as RULES.
+    9. STORE_PHONE:
+       - DEFINITION: Questions about **phone number or contact information**.
+       - KEYWORDS: 電話, 聯絡, 號碼, 打電話.
 
-    10. UNKNOWN:
+    10. STORE_INTRO:
+        - DEFINITION: General store introduction and **MERCHANDISE SALES** (桌遊販售、庫存查詢).
+        - POSITIVE_CONSTRAINT: Questions about "Do you sell [Game]?", "Stock availability", "Price of a game box".
+        - NEGATIVE_CONSTRAINT: Do NOT use for Food (→ STORE_FOOD), Fees (→ STORE_FEE), Address (→ STORE_LOCATION), or Phone (→ STORE_PHONE).
+
+    11. CASUAL_CHAT:
+        - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).
+        - CONSTRAINT: If the input looks like a game question, classify as RULES.
+
+    12. UNKNOWN:
         - DEFINITION: Nonsense or Out-of-Scope questions (Weather, Stocks, Cars).
 
     [OUTPUT FORMAT]
