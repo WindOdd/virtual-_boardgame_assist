@@ -26,7 +26,7 @@ content_map:
   
   # 將以下三者合併指到 STORE_INTRO (或各自獨立，視 store_info 而定)
   STORE_INTRO:     ["STORE_INTRO"]  
-  STORE_LOCATION:  ["STORE_ADDRESS"] # 對應到 STORE_ADDRESS
+  STORE_ADDRESS:  ["STORE_ADDRESS"] # 對應到 STORE_ADDRESS
   STORE_PHONE:     ["STORE_PHONE"]
 
   UNKNOWN:         ["UNKNOWN_FALLBACK"]

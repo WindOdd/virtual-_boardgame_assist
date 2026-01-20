@@ -54,7 +54,7 @@ router:
     7. STORE_HOURS:
        - DEFINITION: Questions about Opening/Closing time.
 
-    8. STORE_LOCATION:
+    8. STORE_ADDRESS:
        - DEFINITION: Questions about **store address, location, MRT station, or directions**.
        - KEYWORDS: 地址, 哪裡, 怎麼走, 位置, 在哪, 捷運.
 
