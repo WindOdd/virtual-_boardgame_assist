@@ -20,7 +20,7 @@ logic_intents:
 content_map:
   STORE_WIFI:      ["STORE_WIFI"]
   STORE_TOILET:    ["STORE_TOILET"]
-  STORE_PRICING:   ["STORE_PRICING"]
+  STORE_FEE:       ["STORE_FEE"]
   STORE_HOURS:     ["STORE_HOURS"]
   STORE_FOOD:      ["STORE_FOOD"]
   
