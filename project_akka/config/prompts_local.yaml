@@ -65,7 +65,7 @@ router:
     10. STORE_INTRO:
         - DEFINITION: General store introduction and **MERCHANDISE SALES** (桌遊販售、庫存查詢).
         - POSITIVE_CONSTRAINT: Questions about "Do you sell [Game]?", "Stock availability", "Price of a game box".
-        - NEGATIVE_CONSTRAINT: Do NOT use for Food (→ STORE_FOOD), Fees (→ STORE_FEE), Address (→ STORE_LOCATION), or Phone (→ STORE_PHONE).
+        - NEGATIVE_CONSTRAINT: Do NOT use for Food (→ STORE_FOOD), Fees (→ STORE_FEE), Address (→ STORE_ADDRESS), or Phone (→ STORE_PHONE).
 
     11. CASUAL_CHAT:
         - DEFINITION: Strictly limited to greetings (Hi, Hello) and simple emotions (I'm bored).
