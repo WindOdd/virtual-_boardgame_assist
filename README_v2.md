@@ -1,8 +1,8 @@
 # Project Akka: 桌遊店語音助理 (Board Game Store Voice Assistant)
 
-Project Akka 是一個專為 **NVIDIA Jetson Orin Nano (Headless Mode)** 設計的本地化語音助理，部署於「貝克街桌遊專賣店」。
+Project Akka 是一個專為桌遊店設計的本地化語音助理，部署於「貝克街桌遊專賣店」。
 
-本系統採用 **V2 雙層語意路由架構 (Dual-Layer Routing)**，結合輕量級語意搜尋模型與本地 LLM，在邊緣裝置上實現毫秒級的店務回應，同時保留強大的雲端 RAG 能力進行複雜的桌遊規則教學。
+本系統採用 **V2 雙層語意路由架構 (Dual-Layer Routing)**，結合輕量級語意搜尋模型與本地 LLM。設計目標是在 **NVIDIA Jetson Orin Nano** 等邊緣裝置上實現毫秒級的店務回應，同時保留強大的雲端 LongContext 能力進行複雜的桌遊規則教學。
 
 ---
 
@@ -32,7 +32,29 @@ Project Akka 是一個專為 **NVIDIA Jetson Orin Nano (Headless Mode)** 設計�
 | :--- | :--- | :--- | :--- |
 | **Layer 1 (FastPath)** | **Semantic Router**<br>(`intfloat/e5-small-v2`) | **[店務攔截]**<br>使用向量相似度 (Embedding) 直接攔截高頻店務問題（如：地址、WIFI、廁所），不經過 LLM，回應極快。 | **< 50ms** |
 | **Layer 2 (Router)** | **Local LLM**<br>(Qwen-4B-Chat-Int4) | **[意圖判斷]**<br>處理 Layer 1 無法攔截的模糊語句，或判斷是否進入規則教學模式。具備完整的人設與防呆機制。 | ~800ms |
-| **Layer 3 (LongContext)** | **Cloud LLM**<br>(Google Gemini 3.0 Flash) | **[規則講解]**<br>針對特定桌遊（如：卡坦島、璀璨寶石）進行深度規則檢索與教學。 | 1.5s+ |
+| **Layer 3 (LongContext)** | **Cloud LLM**<br>(Google Gemini 1.5) | **[規則講解]**<br>針對特定桌遊（如：卡坦島、璀璨寶石）進行深度規則檢索與教學。 | 1.5s+ |
+
+---
+
+## 💻 硬體與環境需求 (Hardware Requirements)
+
+本系統採用彈性架構 (Hardware Agnostic)，支援多種運行環境：
+
+### 推薦配置 (Edge Device)
+* **Device**: NVIDIA Jetson Orin Nano (8GB)
+* **Backend**: `nano_llm` (Jetson Native) or Ollama (Docker)
+* **Performance**: 最佳化後 Layer 2 回應約 800ms
+
+### 通用配置 (Generic / PC / Mac)
+* **System**: 任何可運行 [Ollama](https://ollama.com/) 的電腦 (Mac M-series, Windows/Linux with GPU)。
+* **Requirements**:
+    * Python 3.10+
+    * RAM: 8GB+ (for Qwen-4B)
+    * Ollama Service (Running in background)
+
+### 必要依賴
+* **Layer 1**: 需安裝 `sentence-transformers` (CPU 即可運行，速度極快)。
+* **Layer 3**: 需具備 Google Gemini API Key。
 
 ---
 
@@ -55,7 +77,7 @@ Project Akka 是一個專為 **NVIDIA Jetson Orin Nano (Headless Mode)** 設計�
 ### 🎲 核心與其他 (Core & Others)
 | 意圖標籤 (Intent Tag) | 定義與範例 (Definition & Examples) | 備註 (Note) |
 | :--- | :--- | :--- |
-| **RULES** | **桌遊規則教學**<br>Ex: "這張牌怎麼用？", "卡坦島怎麼玩？" | 系統核心功能，觸發 RAG 流程。 |
+| **RULES** | **桌遊規則教學**<br>Ex: "這張牌怎麼用？", "卡坦島怎麼玩？" | 系統核心功能，觸發 LongContext 流程。 |
 | **SENSITIVE** | **安全過濾**<br>Ex: 政治、暴力、色情話題 | 最高優先級攔截。 |
 | **CASUAL_CHAT** | **閒聊**<br>Ex: "你好", "有人在嗎" | 簡單寒暄與人設互動。 |
 | **UNKNOWN** | **無法識別**<br>Ex: "今天天氣如何？" | 超出服務範圍的問題。 |
@@ -72,6 +94,7 @@ Project Akka 是一個專為 **NVIDIA Jetson Orin Nano (Headless Mode)** 設計�
 ```bash
 cd project_akka
 pip install -r requirements.txt
+```
 
 ### 2. 設定 API Key
 本系統 Layer 3 (longContext ) 依賴 Google Gemini API。請設定環境變數：
@@ -85,50 +108,50 @@ $env:GOOGLE_API_KEY="your_api_key"
 ### 3. 啟動系統
 執行主程式以啟動語音助理服務：
 
-⚙️ 關鍵設定檔 (Configuration)
-
+```bash
+python main.py
+```
+### ⚙️ 關鍵設定檔 (Configuration)
 若需調整路由邏輯或回答內容，請修改 project_akka/config/ 下的檔案：
 
 1. semantic_routes.yaml (Layer 1 設定)
 
     I.  定義語意搜尋的「錨點句子 (Anchors)」。
-
     II. 若發現簡單的店務問題（如問地址）回應太慢，請檢查此處是否有對應的問句。
-
     III. 關鍵變更：V2 已加入 STORE_ADDRESS 與 STORE_PHONE 分流。
 
 2. prompts_local.yaml (Layer 2 設定)
 
-    I. 定義 LLM 的 System Prompt 與分類邏輯。
-
+    I.  定義 LLM 的 System Prompt 與分類邏輯。
     II. 包含「負向約束 (Negative Constraints)」，例如：防止 STORE_FEE 搶走「買遊戲」的問題。
 
 3. store_info.yaml (資料庫)
 
-    I. 店務意圖的標準回答庫（Static Responses）。
-
+    I.  店務意圖的標準回答庫（Static Responses）。
     II. 若要修改地址、電話、WIFI 密碼或營業時間，請直接編輯此檔。
 
 4. system_config.yaml
+    I.  設定硬體參數、Threshold (信心閾值) 與 Log 等級。
+### 🛠️ 開發與維護 (Development)
 
-    I. 設定硬體參數、Threshold (信心閾值) 與 Log 等級。
+1.  新增意圖：需同時修改 semantic_routes.yaml (Layer 1)、prompts_local.yaml (Layer 2) 與 store_info.yaml (回應)。
 
-🛠️ 開發與維護 (Development)
-1. 新增意圖：需同時修改 semantic_routes.yaml (Layer 1)、prompts_local.yaml (Layer 2) 與 store_info.yaml (回應)。
+2.測試建議：修改後請執行 tests/udp_client_test.py 進行回歸測試。
 
-2. 硬體需求：
-### 推薦配置 (Edge Device)
-* **Device**: NVIDIA Jetson Orin Nano (8GB)
-* **Backend**: `nano_llm` (Jetson Native) or Ollama (Docker)
-* **Performance**: 最佳化後 Layer 2 回應約 800ms
+Last Updated: 2026/01 - V2 Architecture Release
 
-### 通用配置 (Generic / PC / Mac)
-* **System**: 任何可運行 [Ollama](https://ollama.com/) 的電腦 (Mac M-series, Windows/Linux with GPU)。
-* **Requirements**:
-    * Python 3.10+
-    * RAM: 8GB+ (for Qwen-4B)
-    * Ollama Service (Running in background)
+## 📝 授權
 
-### 必要依賴
-* **Layer 1**: 需安裝 `sentence-transformers` (CPU 即可運行，速度極快)。
-* **Layer 3**: 需具備 Google Gemini API Key。
+MIT License - 詳見 [LICENSE](LICENSE) 文件
+
+---
+
+## 🤝 貢獻
+
+歡迎提交 Issue 或 Pull Request！
+
+---
+
+## 📧 聯絡方式
+
+如有問題請聯絡: [kdlmapcomtw@gmail.com](mailto:kdlmapcomtw@gmail.com)
