@@ -6,8 +6,8 @@
 
 > 為桌遊店打造的低延遲、具備鮮明角色性格的語音助理系統
 
-**最後更新:** 2025/12/15  
-**版本:** v9.5 (Optimized for Experience & Load)  
+**最後更新:** 2026/01/20  
+**版本:** v9.6 (Optimized for Experience & Load)  
 **狀態:** 鎖定 (Ready for Coding)
 
 ---
