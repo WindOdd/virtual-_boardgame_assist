@@ -115,23 +115,23 @@ python main.py
 若需調整路由邏輯或回答內容，請修改 project_akka/config/ 下的檔案：
 
 1. semantic_routes.yaml (Layer 1 設定)
-
     I.  定義語意搜尋的「錨點句子 (Anchors)」。
     II. 若發現簡單的店務問題（如問地址）回應太慢，請檢查此處是否有對應的問句。
-    III. 關鍵變更：V2 已加入 STORE_ADDRESS 與 STORE_PHONE 分流。
+    III. 關鍵變更：V2 已加入 STORE_ADDRESS (11+ anchors) 與 STORE_PHONE (7+ anchors) 分流。
+    IV. 當前共支援 8 個店務 Intent，每個包含 10-30 個語句變化。
 
 2. prompts_local.yaml (Layer 2 設定)
-
     I.  定義 LLM 的 System Prompt 與分類邏輯。
     II. 包含「負向約束 (Negative Constraints)」，例如：防止 STORE_FEE 搶走「買遊戲」的問題。
 
 3. store_info.yaml (資料庫)
-
     I.  店務意圖的標準回答庫（Static Responses）。
     II. 若要修改地址、電話、WIFI 密碼或營業時間，請直接編輯此檔。
 
 4. system_config.yaml
-    I.  設定硬體參數、Threshold (信心閾值) 與 Log 等級。
+    I.  設定硬體參數、Threshold (信心閾值，當前為 0.88) 與 Log 等級。
+    II. Threshold 調整會影響 Layer 1 的攔截靈敏度。
+    
 ### 🛠️ 開發與維護 (Development)
 
 1.  新增意圖：需同時修改 semantic_routes.yaml (Layer 1)、prompts_local.yaml (Layer 2) 與 store_info.yaml (回應)。
