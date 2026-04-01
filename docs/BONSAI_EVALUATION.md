@@ -6,6 +6,10 @@
 > **評估日期**：2026/04
 >
 > **現有架構**：Qwen-4B (Int4) + e5-small (embedding) + Gemini (Cloud)
+>
+> ⚠️ **重要更新**：Ollama **目前不支援** Q1_0_g128 格式
+> 
+> 需使用 **llama.cpp** 替代方案（見第七章）
 
 ---
 
@@ -211,11 +215,12 @@ persona_model = self.llm_manager.get_local("persona") # 仍用 qwen-4b
 ## 六、風險評估與建議
 
 ### 高風險項
-| 風險 | 影響 | 緩解策略 |
-|:---|:---|:---|
-| **Ollama 不支援 Q1_0 格式** | 無法使用 | 改用 llama.cpp (需修改 API 層) |
-| **繁體中文表現下降** | Intent 錯誤率上升 | 方案 B 保留 Qwen-4B 回退 |
-| **JSON 輸出不穩定** | Router 失效 | Few-shot Prompt + JSON Schema 強化 |
+| 風險 | 影響 | 緩解策略 | 狀態 |
+|:---|:---|:---|:---:|
+| **Ollama 不支援 Q1_0 格式** | 無法使用原方案 | 改用 llama.cpp (~170 行改動) | ❌ **已確認** |
+| **繁體中文表現下降** | Intent 錯誤率上升 | 保留 Qwen-4B 回退機制 | ⚠️ 待測 |
+| **JSON 輸出不穩定** | Router 失效 | Few-shot Prompt + JSON Schema 強化 | ⚠️ 待測 |
+| **llama.cpp 整合問題** | 開發延遲/失敗 | 快速驗證 (1 天) → 決定是否繼續 | 🆕 新增 |
 
 ### 中風險項
 | 風險 | 影響 | 緩解策略 |
@@ -229,25 +234,136 @@ persona_model = self.llm_manager.get_local("persona") # 仍用 qwen-4b
 
 ---
 
-## 七、建議行動方案
+## 七、Ollama 不支援 Q1_0_g128 — 替代方案
 
-### 🎯 **推薦：方案 A (替換 Qwen-4B)**
+### ❌ **已確認：Ollama 目前不支援 Q1_0_g128 格式**
+
+需要選擇以下替代路徑之一：
+
+---
+
+### 方案 A：**改用 llama.cpp 直接推論** ⭐⭐⭐☆☆
+
+**架構改動：**
+```python
+# 現有: local_llm_client.py (Ollama API)
+class OllamaClient:
+    async def generate(self, prompt, system_prompt):
+        resp = requests.post("http://localhost:11434/api/generate", ...)
+
+# 新增: llama_cpp_client.py
+class LlamaCppClient:
+    def __init__(self):
+        from llama_cpp import Llama
+        self.model = Llama(
+            model_path="./bonsai-8b-q1_0_g128.gguf",
+            n_ctx=2048,
+            n_gpu_layers=0  # CPU 推論
+        )
+    
+    async def generate(self, prompt, system_prompt):
+        result = self.model.create_chat_completion(...)
+        return result
+```
+
+**優勢：**
+- ✅ 可直接使用 Bonsai-8B 原始 GGUF 檔
+- ✅ llama.cpp 對 Q1_0 格式支援完整
+- ✅ Python binding (`llama-cpp-python`) 成熟
+
+**劣勢：**
+- ⚠️ 需修改 `llm/manager.py` 和 `local_llm_client.py`
+- ⚠️ 失去 Ollama 的模型管理便利性 (需手動下載 GGUF)
+- ⚠️ API 介面不同，需統一包裝
+
+**改動幅度：**
+| 檔案 | 改動行數 | 難度 |
+|:---|:---:|:---:|
+| `llm/llama_cpp_client.py` | +150 (新增) | ⭐⭐⭐ |
+| `llm/manager.py` | ~20 (切換邏輯) | ⭐⭐ |
+| `requirements.txt` | +1 (`llama-cpp-python`) | ⭐ |
+| **總計** | ~170 行 | ⭐⭐⭐☆☆ |
+
+**估計時程：2-3 天**
+
+---
+
+### 方案 B：**等待官方轉換更高量化版本** ⭐⭐☆☆☆
+
+等待 PrismML 釋出 **Q4_K_M** 或 **Q5_K_M** 版本 (Ollama 原生支援)。
+
+**優勢：**
+- ✅ 零程式碼改動 (仍用 Ollama)
+- ✅ 可能獲得更好的精度 (Q4 > Q1)
+
+**劣勢：**
+- ❌ 失去 1-bit 的記憶體優勢 (Q4: ~2.5 GB, vs Q1: 1.15 GB)
+- ❌ 時程不可控 (可能數週或數月)
+- ❌ PrismML 可能不會釋出 (因為 1-bit 是賣點)
+
+**不推薦理由**：時程不確定，且失去核心優勢。
+
+---
+
+### 方案 C：**自行轉換量化格式** ⭐☆☆☆☆
+
+使用 `llama.cpp` 工具將 Q1_0_g128 → Q4_K_M。
+
+```bash
+# 理論流程
+./quantize bonsai-8b-q1_0_g128.gguf bonsai-8b-q4_k_m.gguf Q4_K_M
+ollama create bonsai-8b-q4 -f Modelfile
+```
+
+**劣勢：**
+- ❌ Q1 → Q4 是「反向量化」，會導致模型大小膨脹回 ~2.5 GB
+- ❌ 失去 1-bit 的全部優勢
+- ❌ 技術上可能不可行 (llama.cpp 不支援 upcasting)
+
+**不推薦理由**：喪失 Bonsai-8B 的核心價值。
+
+---
+
+### 方案 D：**暫不採用，等待 Ollama 支援** ⭐⭐⭐⭐☆
+
+**追蹤進度：**
+- Ollama GitHub Issues: 搜尋 "Q1_0" / "1-bit quantization"
+- llama.cpp releases: Q1 支援 → Ollama 通常會跟進
+
+**如果 Ollama 在 1-2 個月內支援 → 重新評估**
+
+---
+
+## 八、推薦方案總結
+
+### 🎯 **短期（1 個月內需要）：方案 A (llama.cpp)**
 
 **理由：**
-1. 記憶體優勢明顯 (-52%)，適合擴展到更多實例
-2. 1-bit 量化技術是未來趨勢，值得早期驗證
-3. 即使失敗，切換回 Qwen-4B 只需改一行 config
+1. 唯一能立即使用 Bonsai-8B 的方案
+2. 改動可控 (~170 行，2-3 天)
+3. llama.cpp 是成熟解決方案，風險低
 
-**時程規劃：**
+**前置條件：**
+1. 確認 `llama-cpp-python` 對 Q1_0_g128 的支援度
+2. 準備 Qwen-4B 的測試基準數據
+
+**決策流程：**
 ```
-Week 1: Phase 1-2 (基礎驗證 + Router 測試)
-Week 2: Phase 3-4 (Persona + 性能對比)
-Week 3: Phase 5 (生產環境測試) → 決策是否正式切換
+Day 1: 安裝 llama-cpp-python → 測試載入 Bonsai-8B GGUF
+Day 2-3: 實作 LlamaCppClient → 整合進 Pipeline
+Day 4-6: Phase 2-3 測試 (Router + Persona)
+Day 7: 決策是否正式切換
 ```
 
-### ⚠️ **前置條件：**
-1. 先確認 Ollama 支援度 (如不支援，評估 llama.cpp 改造成本)
-2. 準備 Qwen-4B 的測試基準數據 (Intent 準確率、Latency、Persona 品質)
+---
+
+### 🕐 **長期（可等待）：方案 D (等 Ollama)**
+
+如果不急於切換，可持續追蹤：
+- Ollama v0.6.0+ 是否會支援 Q1 格式
+- 約每 2 週檢查一次 Ollama release notes
+
+**一旦 Ollama 支援 → 移除 llama.cpp 客製化，回歸統一架構**
 
 ### 📊 **決策指標：**
 | 指標 | 切換門檻 |
@@ -282,18 +398,54 @@ Layer 3: Gemini Cloud RAG ✅ 保持不變
 
 ---
 
-## 九、結論
+## 九、最終結論與建議
 
-| 項目 | 評分 |
-|:---|:---:|
-| **技術可行性** | ⭐⭐⭐⭐☆ (4/5) |
-| **改動複雜度** | ⭐⭐☆☆☆ (2/5，低) |
-| **風險程度** | ⭐⭐⭐☆☆ (3/5，中) |
-| **潛在收益** | ⭐⭐⭐⭐⭐ (5/5，高) |
+### 📊 **評分卡 (Updated: Ollama 不支援)**
 
-**值得一試**，建議投入 3 週進行完整評估。
+| 項目 | 原始評分 | 考量 llama.cpp 後 |
+|:---|:---:|:---:|
+| **技術可行性** | ⭐⭐⭐⭐☆ (4/5) | ⭐⭐⭐☆☆ (3/5) ⬇ |
+| **改動複雜度** | ⭐⭐☆☆☆ (2/5，低) | ⭐⭐⭐☆☆ (3/5，中) ⬆ |
+| **風險程度** | ⭐⭐⭐☆☆ (3/5，中) | ⭐⭐⭐⭐☆ (4/5，高) ⬆ |
+| **潛在收益** | ⭐⭐⭐⭐⭐ (5/5，高) | ⭐⭐⭐⭐⭐ (5/5，高) ✅ |
+
+### 🎯 **最終建議**
+
+#### 情境 1：**急需降低記憶體使用 (< 1 個月)**
+→ **採用方案 A (llama.cpp)**
+- 投入 1 週開發 + 1 週測試
+- 風險：需維護雙 LLM Backend (Ollama + llama.cpp)
+- 收益：記憶體立即減半
+
+#### 情境 2：**可等待 2-3 個月**
+→ **採用方案 D (等 Ollama 支援)**
+- 每 2 週追蹤 Ollama releases
+- 零開發成本
+- 收益：未來一行 config 即可切換
+
+#### 情境 3：**現有架構已滿足需求**
+→ **暫不採用 Bonsai-8B**
+- Qwen-4B (2.5 GB) 已經夠輕量
+- 等待更成熟的 1-bit 模型生態
+
+### 🔍 **關鍵決策點**
+
+執行以下快速驗證 (1 天)：
+```bash
+# 1. 測試 llama-cpp-python 能否載入 Bonsai-8B
+pip install llama-cpp-python
+python -c "from llama_cpp import Llama; m = Llama('bonsai-8b-q1_0_g128.gguf'); print(m)"
+
+# 2. 測試基本中文推論
+# 如果成功 → 繼續方案 A
+# 如果失敗 → 放棄，等方案 D
+```
+
+**若測試通過 → 投入 2-3 天開發 LlamaCppClient**
+**若測試失敗 → 暫停整合，追蹤 Ollama 進度**
 
 ---
 
-*評估報告 v1.0 — Project Akka*
+*評估報告 v2.0 (Updated) — Project Akka*
 *針對 PrismML Bonsai-8B (Q1_0_g128) 的整合分析*
+*更新：Ollama 不支援 Q1_0_g128，提供 llama.cpp 替代方案*
